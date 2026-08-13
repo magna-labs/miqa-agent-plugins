@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "miqa-aws": {
+      "command": "uvx",
+      "args": ["--refresh", "--prerelease=allow", "miqa-mcp@0.2.10"],
+      "env": {
+        "MIQA_SERVER_URL": "${MIQA_SERVER_URL}",
+        "MIQA_API_KEY": "${MIQA_API_KEY}"
+      }
+    }
+  }
+}
