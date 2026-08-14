@@ -49,6 +49,9 @@ Type `/` in a session — you should see `/miqa:active-triggers` in the list.
     vs. stale baseline vs. still-running). Triggered by things like "what's
     going on with my active test triggers" or "why are my miqa triggers
     failing" — or invoke it directly with `/miqa:active-triggers`.
+  - `assertion-translator` — translates Python analysis scripts or
+    natural-language requirements into validated Miqa Output Explorer
+    assertions and a coverage report.
 
 ### Usage examples
 

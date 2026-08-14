@@ -8,7 +8,7 @@
     {
       "name": "miqa",
       "source": "./plugins/miqa",
-      "description": "Miqa MCP server integration + skills for test trigger monitoring and triage",
+      "description": "Miqa MCP server integration and agent skills",
       "version": "0.2.10"
     }
   ]

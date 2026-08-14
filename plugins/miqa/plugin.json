@@ -1,7 +1,7 @@
 {
   "name": "miqa",
   "version": "0.2.10",
-  "description": "Connects Claude to your Miqa MCP server and adds skills for working with Miqa test triggers",
+  "description": "Connects Claude to Miqa for interacting with Miqa MCP server",
   "author": {
     "name": "Magna Labs"
   }
