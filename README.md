@@ -6,7 +6,7 @@ Claude Code plugin marketplace for Miqa. Wires up the Miqa MCP server
 ## Install
 
 ```bash
-export MIQA_SERVER_URL=api.awstest.magnalabs.co
+export MIQA_SERVER_URL=api.YOURSERVER.miqa.io
 export MIQA_API_KEY=XYZ
 
 claude plugin marketplace add magna-labs/miqa-claude-plugin
