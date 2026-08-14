@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "miqa-aws": {
+    "miqa-mcp": {
       "command": "uvx",
       "args": ["--refresh", "--prerelease=allow", "miqa-mcp@0.2.10"],
       "env": {
