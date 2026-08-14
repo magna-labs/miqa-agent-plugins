@@ -25,33 +25,3 @@ If Claude Code reports it needs a reload after install, run `/reload-plugins`.
     vs. stale baseline vs. still-running). Triggered by things like "what's
     going on with my active test triggers" or "why are my miqa triggers
     failing".
-
-## Releasing a new version
-
-When `miqa-mcp` ships a new PyPI version:
-
-1. Bump the version pin in `plugins/miqa/.mcp.json` (the `miqa-mcp@X.Y.Z` arg).
-2. Bump `version` in `plugins/miqa/plugin.json`.
-3. Bump `version` in `.claude-plugin/marketplace.json`.
-4. Commit and push.
-
-Users pick up the update with:
-
-```bash
-claude plugin marketplace update magna-labs
-claude plugin update miqa
-```
-
-## Repo layout
-
-```
-.claude-plugin/
-  marketplace.json       # catalog entry for the "miqa" plugin
-plugins/
-  miqa/
-    plugin.json           # plugin manifest
-    .mcp.json              # MCP server config (points at published miqa-mcp)
-    skills/
-      active-triggers/
-        SKILL.md
-```
