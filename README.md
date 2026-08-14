@@ -26,3 +26,6 @@ If Claude Code reports it needs a reload after install, run `/reload-plugins`.
     vs. stale baseline vs. still-running). Triggered by things like "what's
     going on with my active test triggers" or "why are my miqa triggers
     failing".
+  - `output-explorer-translator` — translates Python analysis scripts or
+    natural-language requirements into validated Miqa Output Explorer
+    assertions and a coverage report.
