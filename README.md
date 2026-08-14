@@ -1,9 +1,10 @@
-# miqa-claude-plugin
+# miqa-agent-plugins
 
+## Claude Code
 Claude Code plugin marketplace for Miqa. Wires up the Miqa MCP server
 (published on PyPI as `miqa-mcp`) and ships skills for working with it.
 
-## Install
+### Install
 
 ```bash
 export MIQA_SERVER_URL=api.YOURSERVER.miqa.io
