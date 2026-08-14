@@ -1,9 +1,9 @@
 ---
-name: output-explorer-translator
+name: assertion-translator
 description: Translate a Python analysis script or natural-language request into MIQA Output Explorer assertions and a coverage report. Use when a user asks for MIQA assertions, Output Explorer checks, or a translation of analysis code or stated requirements into MIQA tests.
 ---
 
-# Output Explorer Translator
+# Assertion Translator
 
 Create an assertions blob and `coverage.md`. Show the coverage report to the user before offering
 to publish anything.
