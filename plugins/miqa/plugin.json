@@ -4,6 +4,5 @@
   "description": "Connects Claude to your Miqa MCP server and adds skills for working with Miqa test triggers",
   "author": {
     "name": "Magna Labs"
-  },
-  "mcpServers": ".mcp.json"
+  }
 }
