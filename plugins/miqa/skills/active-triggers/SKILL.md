@@ -80,7 +80,13 @@ the sweep, rather than guessing from the server name.
    a long-standing pass or long-standing fail needs no extra annotation
    beyond the Status emoji. This is still purely descriptive of the pulled
    window, not an explanation of *why*; keep each Note to a short clause so
-   the table stays narrow enough to render as real columns. Keep this table
+   the table stays narrow enough to render as real columns. Don't reach for
+   `version_name` in this same pull as a free "why" — it changes on nearly
+   every run, so "version changed" is trivial, and a narrower-looking signal
+   like "moved off a DRAFT/snapshot tag" can coincide with a flip without
+   being the actual cause (a baseline/threshold fix landing around the same
+   time is just as plausible, and only `get_test_chain_run_environment`
+   in step 4/6 can tell the two apart). Leave *why* to those steps. Keep this table
    at the same high level as before; the extra column doesn't turn step 3
    into step 6's deep-dive. After the table, ask whether to dig into the
    root cause of any 🟢 trigger with a Note attached (recovered or
