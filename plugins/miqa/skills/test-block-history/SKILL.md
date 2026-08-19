@@ -39,10 +39,10 @@ attempted via the API.
    match, show the id+name pairs and ask which one (don't guess). If zero
    match, try a looser substring before telling the user nothing was found.
 
-2. **Show the version history table in batches of 10, each fully
+2. **Show the version history table in batches of 5, each fully
    glossed — don't wait to be asked, and don't assume they know a version
-   id.** Call `api_get_test_block_versions(tb_id, limit=10)` (newest
-   first) and post a table:
+   id.** Call `api_get_test_block_versions(tb_id, limit=5)` (newest first)
+   and post a table:
 
    | Version | Date created | Author | What changed (vs. previous) |
    |---|---|---|---|
@@ -52,17 +52,24 @@ attempted via the API.
 
    Mark `is_current`/`is_latest` with a leading 🟢 plus inline "(current)"
    on the version id, don't add a separate column for it — keeps the table
-   narrow. Gloss every row in the batch by fetching each version via
-   `api_get_test_block_version` and diffing consecutive pairs (same
+   narrow. Gloss every row in the batch by fetching each version in the
+   batch via `api_get_test_block_version` **in parallel** (one round of
+   concurrent calls, not sequential) and diffing consecutive pairs (same
    structural-diff approach as the "Diffing two versions" procedure below,
    condensed to one short clause — this table is for picking a version, not
    auditing one). Never render a row with a blank/placeholder gloss —
    every row shown gets a real one-line answer, or the row isn't shown yet.
+   Because the batch fetches in parallel, there's no meaningful
+   "in-progress" state worth streaming — post the finished 5-row table in
+   one shot rather than a live-updating partial table; that progressive
+   pattern belongs to genuinely slow per-item work (like `active-triggers`'
+   root-cause agents), not a handful of parallel reads that land in a
+   couple seconds.
 
-   If `total_count` exceeds 10, after the table say how many more versions
+   If `total_count` exceeds 5, after the table say how many more versions
    exist further back (with the oldest shown date, e.g. "12 more versions
    exist before 2026-05-18") and ask whether to keep going — another batch
-   of 10, or stop here. Don't auto-continue into a second batch, and don't
+   of 5, or stop here. Don't auto-continue into a second batch, and don't
    silently truncate a large history without saying so; a TestBlock with
    dozens of revisions should never dump them all (or a half-glossed table)
    in one shot.
@@ -239,9 +246,10 @@ skim.
 - Always ship the version-history table (step 2) before diffing or copying
   anything — it's cheap and orients the user on how much history exists
   and lets them point at a version by content instead of an id.
-- Step 2's table is capped at 10 fully-glossed rows per batch, always. A
-  TestBlock with dozens of versions gets the newest 10 plus an offer to
-  keep paging back — never a 30-row table with 20 blank gloss cells, and
+- Step 2's table is capped at 5 fully-glossed rows per batch, fetched in
+  parallel, always. A TestBlock with dozens of versions gets the newest 5
+  plus an offer to keep paging back — never a 30-row table with most of it
+  blank gloss cells, and
   never a silent one-shot dump of the whole history.
 - The most recent change is auto-diffed without being asked (step 3);
   older pairs, specific pairs, and copy-to-clipboard requests all happen
