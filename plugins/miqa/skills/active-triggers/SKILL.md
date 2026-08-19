@@ -1,8 +1,8 @@
 ---
 name: active-triggers
-description: Use when the user asks "what's going on with my [most] active test triggers", "miqa trigger status", "why are my miqa triggers failing", or otherwise wants a status + root-cause sweep across Miqa test triggers (via a connected Miqa MCP server). Produces a final table of trigger, status, and root cause.
+description: Use when the user asks "what's going on with my [most] active test triggers", "miqa trigger status", "why are my miqa triggers failing", or otherwise wants a status + root-cause sweep across Miqa test triggers (via a connected Miqa MCP server). Produces a fast pass/fail table first, then root-causes what's currently broken and offers to dig into anything that already recovered.
 metadata:
-  version: 1.0.1
+  version: 1.1.0
 ---
 
 # Miqa Active Trigger Triage
@@ -39,10 +39,48 @@ the sweep, rather than guessing from the server name.
      compact table (id, name, run count, most recent date, cadence, last 3
      outcomes, ACTIVE flag). Don't do this serially in the main context —
      it burns a lot of tokens for low-value raw data.
+   - This same `list_test_chain_runs_for_trigger(limit=15)` pull already carries each
+     run's `outcome` (pass/fail) — capture two things from it per active trigger
+     for free, without any extra tool calls: the **latest run's outcome**, and
+     whether **any run in the pulled window failed** even if the latest passed
+     (call this "recovered"). Both feed step 3 directly.
 
-3. **Root-cause every active trigger that isn't clean.** For each active
-   trigger with recent failures, fan out one root-cause agent per trigger
-   (in parallel) with instructions to:
+3. **Post the quick status table immediately — before doing any root-cause
+   digging.** The user wants to see what's green *first*; the "why did it
+   fail last week" story is a follow-up, not the headline. Using only the
+   latest-run outcome captured in step 2 (no `get_test_chain_run_report` or
+   `get_test_chain_run_environment` calls yet), post a two-column table, one
+   row per active trigger:
+
+   | Trigger | Status |
+   |---|---|
+   | demux-release | 🟢 Healthy |
+   | gdc-str-release | 🟢 Healthy |
+   | rc-release | 🟢 Healthy |
+   | ssvc-tn-release | 🔴 Failing |
+
+   Use 🟢 if the latest run passed, 🔴 if it failed, 🟡 if it's
+   `incomplete`/`Started` (don't call this a stall yet — that's step 6). This
+   table is a standalone deliverable — send it and stop before moving on to
+   step 4, don't silently chain straight into root-causing.
+
+   Immediately below the table, if step 2 flagged any currently-🟢 trigger as
+   "recovered" (failed earlier in the window, passing now), add one hint
+   line naming them — no explanation of *why* yet, just the fact: "demux-release,
+   gdc-str-release, and rc-release also failed earlier this week before
+   recovering." Then ask whether to dig into the root cause — all of them, one
+   in particular, or skip it. Do not start step 4's investigation on a
+   recovered trigger until the user asks; a currently-green trigger is not an
+   open problem, and unpacking why it used to fail is optional context, not
+   part of the core deliverable.
+
+4. **Root-cause every active trigger that's currently broken — automatically,
+   without asking.** A 🔴 or stalled 🟡 trigger from step 3 is a live,
+   actionable problem, not optional follow-up, so proceed straight into this
+   step for those. (Recovered 🟢 triggers only enter this step if the user
+   asks for the dig-in offered in step 3 — see the scoping note there.)
+   For each trigger being root-caused, fan out one root-cause agent per
+   trigger (in parallel) with instructions to:
    - Pull `list_test_chain_runs_for_trigger(trigger_id, limit=30)` and find the exact pass→fail
      boundary (or confirm it's been failing the whole window).
    - On the latest failing run, call `get_test_chain_run_report` for per-check
@@ -109,7 +147,7 @@ the sweep, rather than guessing from the server name.
      incompatible — the owner just needs to rebaseline/re-anchor the
      comparison version) — these need different owners to act on.
 
-4. **Before calling anything "stuck": check the runtime baseline.** If a run
+5. **Before calling anything "stuck": check the runtime baseline.** If a run
    shows status `incomplete`/`Started` with `execution_end == execution_start`
    or missing, do NOT conclude it's stalled. First pull
    `get_test_chain_run_environment` for 1-2 prior *successful* runs of that same
@@ -119,14 +157,18 @@ the sweep, rather than guessing from the server name.
    and still-running, not broken. Only flag a real stall if elapsed time
    clearly exceeds the normal runtime for that chain.
 
-5. **Report progress while step 3 is running, then the final result, as an
+6. **Report progress while step 4 is running, then the final result, as an
    actual markdown table** — not a bulleted list of per-trigger paragraphs.
+   This is the deep-dive table (Trigger, Status, Root cause) — a separate,
+   later deliverable from the quick two-column table in step 3, scoped only
+   to whatever triggers actually entered step 4 (the currently-broken ones,
+   plus any recovered ones the user asked to dig into).
 
-   **Progress mode while root-cause agents (step 3) are still in flight:**
+   **Progress mode while root-cause agents (step 4) are still in flight:**
    - **Fewer than 10 triggers being root-caused:** default to **live table**
-     mode. As soon as step 3 kicks off, post the full table pre-seeded with
-     one row per active trigger, in a stable order (e.g. alphabetical by
-     trigger name) — unresolved rows show Status `⏳ pending` and Root cause
+     mode. As soon as step 4 kicks off, post the full table pre-seeded with
+     one row per trigger entering step 4, in a stable order (e.g. alphabetical
+     by trigger name) — unresolved rows show Status `⏳ pending` and Root cause
      `—`. Each time a root-cause agent completes, reprint the whole table
      with that row filled in. The table update *is* the progress update —
      don't also add separate narrative pings on top of it.
@@ -142,18 +184,26 @@ the sweep, rather than guessing from the server name.
      further results land. Switch automatically; don't stop to ask the user
      first.
 
-   One row per active trigger, three columns:
+   One row per trigger that entered step 4, three columns:
 
    | Trigger | Status | Root cause |
    |---|---|---|
    | gdc-str-release | 🔴 Real regression | CLI flag renamed `--bam-input`→`--bam`, crashing since TCR 60301 (`1.2.0-DRAFT-260811-6e5c587`) |
    | rc-release | 🟡 Needs baseline update | `@release_series` baseline frozen since TCR 59905, "no comparison version found" |
    | ssvc-tn-release | 🟢 Healthy, still running | TCR 60304 within normal ~10.5h runtime, not stalled |
+   | demux-release | 🟢 Recovered | `@release_series` baseline pointer broken (TCR 60238–60272); admin repointed baseline + force-rebaselined history on TCR 60278; current runs pass organically |
 
    Use 🔴 for a real product regression, 🟡 for "needs a baseline update"
    (stale baseline, frozen/un-re-anchored comparison version, etc. — an
    action item for whoever owns the test config, not a code bug), 🟢 for
-   healthy/passing/still-running-normally. Each root-cause cell should name
+   healthy/passing/still-running-normally (including "Recovered" — currently
+   passing, dug into on request after having failed earlier in the window).
+   For a forced-rebaseline recovery specifically, check whether the *current*
+   runs resolve their baseline and pass organically (`forced: false` in the
+   latest `get_test_chain_run_environment`) — a bulk `forced: true` "Mark pass"
+   rebaseline event on the historical failing runs only cleans up the record;
+   it doesn't by itself prove the underlying issue (e.g. a baseline pointer)
+   was actually fixed going forward. Each root-cause cell should name
    **the actual underlying error** (the specific exception/log message, the
    renamed/missing flag, the model-schema mismatch — not a generic label
    like "crashed" or "exit code 1") and always cite the **full docker tag +
@@ -193,8 +243,13 @@ the sweep, rather than guessing from the server name.
 
 ## Notes
 
-- Don't bother deep-diving triggers that are active and passing cleanly —
-  just note them as healthy.
+- Always ship the quick status table (step 3) before any root-causing. It
+  should be fast — it's built entirely from data step 2 already pulled, no
+  extra tool calls. Don't let step 4's investigation delay it.
+- Don't auto-deep-dive a trigger just because it failed at some point in the
+  last 14 days — only currently-broken (🔴/stalled 🟡) triggers get automatic
+  root-cause. A trigger that's green right now but failed earlier gets a
+  one-line hint and an offer, not an automatic investigation.
 - If the trigger count is large (dozens+), the two-phase fan-out (scan for
-  activity, then root-cause only the failing/incomplete ones) keeps this
-  fast and cheap instead of root-causing everything indiscriminately.
+  activity, then root-cause only the currently-failing/incomplete ones) keeps
+  this fast and cheap instead of root-causing everything indiscriminately.
