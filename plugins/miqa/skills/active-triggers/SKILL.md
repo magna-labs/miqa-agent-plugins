@@ -2,7 +2,7 @@
 name: active-triggers
 description: Use when the user asks "what's going on with my [most] active test triggers", "miqa trigger status", "why are my miqa triggers failing", or otherwise wants a status + root-cause sweep across Miqa test triggers (via a connected Miqa MCP server). Produces a fast pass/fail table first, then root-causes what's currently broken and offers to dig into anything that already recovered.
 metadata:
-  version: 1.1.0
+  version: 1.2.0
 ---
 
 # Miqa Active Trigger Triage
@@ -49,27 +49,29 @@ the sweep, rather than guessing from the server name.
    digging.** The user wants to see what's green *first*; the "why did it
    fail last week" story is a follow-up, not the headline. Using only the
    latest-run outcome captured in step 2 (no `get_test_chain_run_report` or
-   `get_test_chain_run_environment` calls yet), post a two-column table, one
+   `get_test_chain_run_environment` calls yet), post a three-column table, one
    row per active trigger:
 
-   | Trigger | Status |
-   |---|---|
-   | demux-release | 🟢 Healthy |
-   | gdc-str-release | 🟢 Healthy |
-   | rc-release | 🟢 Healthy |
-   | ssvc-tn-release | 🔴 Failing |
+   | Trigger | Status | Note |
+   |---|---|---|
+   | demux-release | 🟢 Healthy | Failed earlier this week, now recovered |
+   | gdc-str-release | 🟢 Healthy | Failed earlier this week, now recovered |
+   | rc-release | 🟢 Healthy | — |
+   | ssvc-tn-release | 🔴 Failing | — |
 
    Use 🟢 if the latest run passed, 🔴 if it failed, 🟡 if it's
    `incomplete`/`Started` (don't call this a stall yet — that's step 6). This
    table is a standalone deliverable — send it and stop before moving on to
    step 4, don't silently chain straight into root-causing.
 
-   Immediately below the table, if step 2 flagged any currently-🟢 trigger as
-   "recovered" (failed earlier in the window, passing now), add one hint
-   line naming them — no explanation of *why* yet, just the fact: "demux-release,
-   gdc-str-release, and rc-release also failed earlier this week before
-   recovering." Then ask whether to dig into the root cause — all of them, one
-   in particular, or skip it. Do not start step 4's investigation on a
+   The Note column is where step 2's "recovered" flag surfaces — still no
+   explanation of *why* yet, just the fact, inline on that trigger's own row
+   rather than as separate prose below the table. Leave it `—` for triggers
+   that didn't flip during the window. Keep this table at the same high
+   level as before (recovered fact only, not a root cause); the extra
+   column doesn't turn step 3 into step 6's deep-dive. After the table, ask
+   whether to dig into the root cause of the recovered ones — all of them,
+   one in particular, or skip it. Do not start step 4's investigation on a
    recovered trigger until the user asks; a currently-green trigger is not an
    open problem, and unpacking why it used to fail is optional context, not
    part of the core deliverable.
