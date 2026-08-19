@@ -1,7 +1,8 @@
 ---
 name: active-triggers
 description: Use when the user asks "what's going on with my [most] active test triggers", "miqa trigger status", "why are my miqa triggers failing", or otherwise wants a status + root-cause sweep across Miqa test triggers (via a connected Miqa MCP server). Produces a final table of trigger, status, and root cause.
-version: 1.0.0
+metadata:
+  version: 1.0.1
 ---
 
 # Miqa Active Trigger Triage
@@ -12,8 +13,8 @@ distinguishing real product regressions from stale test config (baselines
 that need updating, comparison versions that never got re-anchored) and
 from pipelines that are simply still executing.
 
-This skill calls tools named `list_test_triggers`, `list_trigger_runs`,
-`get_test_run_report`, and `get_test_run_environment` on whichever Miqa MCP
+This skill calls tools named `list_test_triggers`, `list_test_chain_runs_for_trigger`,
+`get_test_chain_run_report`, and `get_test_chain_run_environment` on whichever Miqa MCP
 server is connected (tool names follow the pattern
 `mcp__<server-name>__<tool>`). Most setups have exactly one Miqa MCP server
 connected — just use it. If more than one is connected (e.g. separate
@@ -28,13 +29,13 @@ the sweep, rather than guessing from the server name.
 2. **Find which enabled triggers are actually active.** "Enabled" and
    "recently running" are different things — triggers can sit enabled but
    dormant for months or years. For each enabled trigger, call
-   `list_trigger_runs(trigger_id, limit=15)` and check the most recent run
+   `list_test_chain_runs_for_trigger(trigger_id, limit=15)` and check the most recent run
    date. A trigger counts as **active** if it has run more than once in the
    last 14 days (adjust the window if the user asks for a different one, or
    if cadences in this fleet run slower than daily).
    - This step is naturally parallelizable: batch the enabled triggers into
      groups of ~10-15 and fan out `general-purpose` agents (via the Agent
-     tool) to pull `list_trigger_runs` for each batch and report back a
+     tool) to pull `list_test_chain_runs_for_trigger` for each batch and report back a
      compact table (id, name, run count, most recent date, cadence, last 3
      outcomes, ACTIVE flag). Don't do this serially in the main context —
      it burns a lot of tokens for low-value raw data.
@@ -42,19 +43,19 @@ the sweep, rather than guessing from the server name.
 3. **Root-cause every active trigger that isn't clean.** For each active
    trigger with recent failures, fan out one root-cause agent per trigger
    (in parallel) with instructions to:
-   - Pull `list_trigger_runs(limit=30)` and find the exact pass→fail
+   - Pull `list_test_chain_runs_for_trigger(trigger_id, limit=30)` and find the exact pass→fail
      boundary (or confirm it's been failing the whole window).
-   - On the latest failing run, call `get_test_run_report` for per-check
+   - On the latest failing run, call `get_test_chain_run_report` for per-check
      diff detail — don't stop at pass/fail. Distinguish: genuine content
      mismatch vs. "missing matching file"/`missing_in_baseline: true`
      (baseline needs updating) vs. execution failure (crash/exit code, check
-     `execution_failure` in `get_test_run_environment` — **not**
-     `get_test_run_sample_metadata`, whose schema is per-chain and often
+     `execution_failure` in `get_test_chain_run_environment` — **not**
+     `get_test_chain_run_sample_metadata`, whose schema is per-chain and often
      doesn't carry execution status at all).
-     `get_test_run_report`'s payload is frequently 700K+ chars — it's
+     `get_test_chain_run_report`'s payload is frequently 700K+ chars — it's
      usually saved to a file rather than returned inline. Don't try to
      read it whole; narrow to the specific failing `check_name`(s) first
-     (from `get_test_run_results`) and jq/grep into the saved file for
+     (from `get_test_chain_run_results`) and jq/grep into the saved file for
      just those.
    - **For execution failures, don't stop at `exit_code`/`status_reason`** —
      those are usually just generic harness-level boilerplate (e.g.
@@ -66,7 +67,7 @@ the sweep, rather than guessing from the server name.
      (e.g. a missing/renamed CLI flag, a model/feature-schema mismatch, an
      assertion string) in the report. A category label like "container
      crashed" or "exit code 1" alone is not sufficient root cause.
-   - Compare `get_test_run_environment` across the pass/fail boundary —
+   - Compare `get_test_chain_run_environment` across the pass/fail boundary —
      did the baseline pointer change (`default_baseline_tbr_id`), did the
      docker tag/version change, or did nothing external change (pointing to
      a genuine code regression)? For `missing_in_baseline`/"no comparison
@@ -83,7 +84,7 @@ the sweep, rather than guessing from the server name.
      *why* it's failing partway through (e.g. a content/assertion mismatch
      for a month, then a CLI crash stacks on top starting a few days ago).
      Checking only the latest failing run and backdating that signature to
-     the whole window is wrong. Pull `get_test_run_environment` for BOTH
+     the whole window is wrong. Pull `get_test_chain_run_environment` for BOTH
      the earliest failing run in the streak AND the latest, and compare
      `execution_status` (`"Done"` = assertion/content-level failure —
      check `latest_status_event`/assertion detail; `"Failed"` = execution
@@ -111,7 +112,7 @@ the sweep, rather than guessing from the server name.
 4. **Before calling anything "stuck": check the runtime baseline.** If a run
    shows status `incomplete`/`Started` with `execution_end == execution_start`
    or missing, do NOT conclude it's stalled. First pull
-   `get_test_run_environment` for 1-2 prior *successful* runs of that same
+   `get_test_chain_run_environment` for 1-2 prior *successful* runs of that same
    test chain and note their `execution_start`→`execution_end` duration. If
    elapsed real time since the incomplete run's start is still within that
    normal runtime range, it's simply still executing — report it as healthy
