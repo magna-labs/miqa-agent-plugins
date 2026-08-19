@@ -2,7 +2,7 @@
 name: active-triggers
 description: Use when the user asks "what's going on with my [most] active test triggers", "miqa trigger status", "why are my miqa triggers failing", or otherwise wants a status + root-cause sweep across Miqa test triggers (via a connected Miqa MCP server). Produces a fast pass/fail table first, then root-causes what's currently broken and offers to dig into anything that already recovered.
 metadata:
-  version: 1.2.0
+  version: 1.4.0
 ---
 
 # Miqa Active Trigger Triage
@@ -25,6 +25,22 @@ the sweep, rather than guessing from the server name.
 
 1. **List and filter.** Call `list_test_triggers`. Keep only `disabled: false`
    entries — never spend budget investigating disabled triggers.
+   - Also derive the Miqa web UI host once, up front, so trigger names and
+     docker tags can be posted as clickable links for the rest of this
+     sweep (steps 3 and 6): read the `MIQA_SERVER_URL` env var backing the
+     connected Miqa MCP server (e.g. a one-off `echo $MIQA_SERVER_URL`).
+     If it matches `api.<env>.miqa.io` (starts with `api.`, ends with
+     `.miqa.io`), the web host is `<env>.miqa.io` — strip the leading
+     `api.`. If it doesn't match that shape (e.g. a raw gateway/Zuplo-style
+     host with no `.miqa.io` suffix), don't guess a web host — render
+     trigger names and version tags as plain text for the rest of the
+     sweep, never fabricate a link. When a web host is available: a
+     trigger name links to `{web_host}/test_trigger/{trigger_id}`; a
+     specific run/version citation links to
+     `{web_host}/test_chain_run/{tcr_id}`. Terminal markdown renderers
+     measure table column width by the link's *visible text*, not the
+     underlying URL, so wrapping names/tags in links doesn't change any of
+     the cell-width guidance below.
 
 2. **Find which enabled triggers are actually active.** "Enabled" and
    "recently running" are different things — triggers can sit enabled but
@@ -40,63 +56,80 @@ the sweep, rather than guessing from the server name.
      outcomes, ACTIVE flag). Don't do this serially in the main context —
      it burns a lot of tokens for low-value raw data.
    - This same `list_test_chain_runs_for_trigger(limit=15)` pull already carries each
-     run's `outcome` (pass/fail) — capture two things from it per active trigger
-     for free, without any extra tool calls: the **latest run's outcome**, and
-     whatever **high-level pattern is visible across the pulled window itself**:
-     **recovered** (failed earlier in the window, passing now), **newly failing**
-     (was passing, only the latest run failed), or **intermittent** (flips
-     pass/fail more than once in the window — not one clean transition). A
-     window with no flip at all (monotonic pass or monotonic fail) has no
-     pattern to report. Both the outcome and the pattern feed step 3 directly.
+     run's `id`/`run_id` (the TCR id), `outcome` (pass/fail), and `version_name`
+     — capture these per active trigger for free, without any extra tool calls:
+     the **latest run's outcome**, the **latest run's version + TCR id** (the
+     docker tag is everything after the final `:` in `version_name`, dropping
+     the registry/image path), and whatever **high-level pattern is visible across
+     the pulled window itself**: **recovered** (failed earlier in the window,
+     passing now — also note the date, version, and TCR id of that last
+     failing run), **newly failing** (was passing, only the latest run failed
+     — also note the date, version, and TCR id of that last passing run), or
+     **intermittent** (flips pass/fail more than once in the window — not one
+     clean transition). A window with no flip at all (monotonic pass or
+     monotonic fail) has no pattern to report, just the current version. All
+     of this feeds step 3's merged Status + Note directly, including the TCR
+     ids used to link tags per step 1's host-derivation note.
 
 3. **Post the quick status table immediately — before doing any root-cause
    digging.** The user wants to see what's green *first*; the "why did it
    fail last week" story is a follow-up, not the headline. Using only the
-   latest-run outcome captured in step 2 (no `get_test_chain_run_report` or
-   `get_test_chain_run_environment` calls yet), post a three-column table, one
-   row per active trigger:
+   latest-run outcome, version, and pattern captured in step 2 (no
+   `get_test_chain_run_report` or `get_test_chain_run_environment` calls
+   yet), post a three-column table, one row per active trigger:
 
    | Trigger | Status | Note |
    |---|---|---|
-   | demux-release | 🟢 Healthy | Failed earlier this week, now recovered |
-   | gdc-str-release | 🟢 Healthy | Intermittent — flips pass/fail across the window |
-   | rc-release | 🟢 Healthy | — |
-   | ssvc-tn-release | 🔴 Failing | Just started failing (previous run passed) |
+   | [demux-release](https://{web_host}/test_trigger/525aae1b) | 🟢 Healthy | Passing on [`1.2.0-260816-b8833cb`](https://{web_host}/test_chain_run/60327), previously failing up to 2026-08-09 ([`1.2.0-DRAFT-260809-c73ae0c`](https://{web_host}/test_chain_run/60272)) |
+   | [gdc-str-release](https://{web_host}/test_trigger/fb8e25c4) | 🟢 Healthy | Intermittent — flips pass/fail across the window; currently on [`1.2.0-260816-b8833cb`](https://{web_host}/test_chain_run/60326) |
+   | [rc-release](https://{web_host}/test_trigger/46f9b657) | 🟢 Healthy | Passing on [`1.2.0-260816-b8833cb`](https://{web_host}/test_chain_run/60325) |
+   | [ssvc-tn-release](https://{web_host}/test_trigger/54157ec2) | 🔴 Failing | Failing on [`1.2.0-DRAFT-260811-6e5c587`](https://{web_host}/test_chain_run/60262), previously passing |
 
    Use 🟢 if the latest run passed, 🔴 if it failed, 🟡 if it's
    `incomplete`/`Started` (don't call this a stall yet — that's step 6). This
    table is a standalone deliverable — send it and stop before moving on to
    step 4, don't silently chain straight into root-causing.
 
-   The Note column surfaces whatever high-level pattern step 2 found in the
-   pulled window — still no explanation of *why* yet, just the fact, inline
-   on that trigger's own row rather than as separate prose below the table.
-   Use "Failed earlier this week, now recovered" for a clean flip back to
-   green, "Intermittent — flips pass/fail across the window" when it toggles
-   more than once, and "Just started failing (previous run passed)" when a
-   currently-🔴 trigger's break is brand new rather than long-standing (worth
-   knowing at a glance, since it changes how urgent the automatic step 4
-   dig-in is). Leave it `—` when the window is monotonic (no flip at all) —
-   a long-standing pass or long-standing fail needs no extra annotation
-   beyond the Status emoji. This is still purely descriptive of the pulled
-   window, not an explanation of *why*; keep each Note to a short clause so
-   the table stays narrow enough to render as real columns. Don't reach for
-   `version_name` in this same pull as a free "why" — it changes on nearly
-   every run, so "version changed" is trivial, and a narrower-looking signal
-   like "moved off a DRAFT/snapshot tag" can coincide with a flip without
-   being the actual cause (a baseline/threshold fix landing around the same
-   time is just as plausible, and only `get_test_chain_run_environment`
-   in step 4/6 can tell the two apart). Leave *why* to those steps. Keep this table
-   at the same high level as before; the extra column doesn't turn step 3
-   into step 6's deep-dive. After the table, ask whether to dig into the
-   root cause of any 🟢 trigger with a Note attached (recovered or
-   intermittent) — all of them, one in particular, or skip it. Do not start
-   step 4's investigation on one of these until the user asks; a
-   currently-green trigger is not an open problem, and unpacking its past
-   pattern is optional context, not part of the core deliverable. A 🔴
-   "just started failing" trigger still goes straight to step 4
-   automatically like any other currently-broken trigger — the Note there is
-   extra context, not a reason to hold off.
+   Trigger names link to `{web_host}/test_trigger/{trigger_id}` per step
+   1's host-derivation note (plain text if no web host could be derived).
+   The Note column always leads with a base clause naming what version
+   the trigger is currently on: "Passing on `X`" or "Failing on `X`",
+   using the bare docker tag (strip the registry/image path, e.g.
+   `registry.example.com/company/variant_calling:1.2.0-260816-b8833cb` →
+   `1.2.0-260816-b8833cb`) so the cell stays narrow — but once stripped,
+   never truncate or abbreviate the tag itself, same rule as step 6's
+   root-cause table. Link `X` (and any other tag mentioned in the same
+   cell) to that specific run's `{web_host}/test_chain_run/{tcr_id}` when
+   a web host is available. Layer whatever pattern step 2 found on top of
+   that base clause, don't replace it:
+   - **recovered** — append ", previously failing up to {date of the last
+     failing run} (`{that run's version}`)", e.g. "Passing on `X`,
+     previously failing up to 2026-08-09 (`Y`)", with `Y` linked to its
+     own TCR the same way as `X`.
+   - **newly failing** — append ", previously passing"; add the last
+     passing run's date/version too when it fits cleanly (e.g. "Failing
+     on `X`, previously passing until 2026-08-11 (`Y`)"), but the bare
+     ", previously passing" is fine on its own — step 4 pins the exact
+     boundary anyway, this is just the headline.
+   - **intermittent** — append "; flips pass/fail across the window"
+     instead of a specific prior date/version, since there's no single
+     clean boundary to cite.
+   - **monotonic (no flip)** — no extra clause; the base "Passing on `X`"
+     / "Failing on `X`" is the whole Note.
+
+   This is still purely descriptive of the pulled window, not an
+   explanation of *why* anything changed — keep it to one short sentence
+   so the table stays narrow enough to render as real columns, and leave
+   causation to steps 4/6. After the table, ask whether to dig into the
+   root cause of any 🟢 trigger whose Note carries a recovered or
+   intermittent pattern clause (not just the plain "Passing on `X`") —
+   all of them, one in particular, or skip it. Do not start step 4's
+   investigation on one of these until the user asks; a currently-green
+   trigger is not an open problem, and unpacking its past pattern is
+   optional context, not part of the core deliverable. A 🔴 "newly
+   failing" trigger still goes straight to step 4 automatically like any
+   other currently-broken trigger — the Note there is extra context, not
+   a reason to hold off.
 
 4. **Root-cause every active trigger that's currently broken — automatically,
    without asking.** A 🔴 or stalled 🟡 trigger from step 3 is a live,
@@ -184,7 +217,7 @@ the sweep, rather than guessing from the server name.
 6. **Report progress while step 4 is running, then the final result, as an
    actual markdown table** — not a bulleted list of per-trigger paragraphs.
    This is the deep-dive table (Trigger, Status, Root cause) — a separate,
-   later deliverable from the quick two-column table in step 3, scoped only
+   later deliverable from the quick three-column table in step 3, scoped only
    to whatever triggers actually entered step 4 (the currently-broken ones,
    plus any recovered ones the user asked to dig into).
 
@@ -212,10 +245,10 @@ the sweep, rather than guessing from the server name.
 
    | Trigger | Status | Root cause |
    |---|---|---|
-   | gdc-str-release | 🔴 Real regression | CLI flag renamed `--bam-input`→`--bam`, crashing since TCR 60301 (`1.2.0-DRAFT-260811-6e5c587`) |
-   | rc-release | 🟡 Needs baseline update | `@release_series` baseline frozen since TCR 59905, "no comparison version found" |
-   | ssvc-tn-release | 🟢 Healthy, still running | TCR 60304 within normal ~10.5h runtime, not stalled |
-   | demux-release | 🟢 Recovered | `@release_series` baseline pointer broken (TCR 60238–60272); admin repointed baseline + force-rebaselined history on TCR 60278; current runs pass organically |
+   | [gdc-str-release](https://{web_host}/test_trigger/fb8e25c4) | 🔴 Real regression | CLI flag renamed `--bam-input`→`--bam`, crashing since [TCR 60301](https://{web_host}/test_chain_run/60301) (`1.2.0-DRAFT-260811-6e5c587`) |
+   | [rc-release](https://{web_host}/test_trigger/46f9b657) | 🟡 Needs baseline update | `@release_series` baseline frozen since [TCR 59905](https://{web_host}/test_chain_run/59905), "no comparison version found" |
+   | [ssvc-tn-release](https://{web_host}/test_trigger/54157ec2) | 🟢 Healthy, still running | [TCR 60304](https://{web_host}/test_chain_run/60304) within normal ~10.5h runtime, not stalled |
+   | [demux-release](https://{web_host}/test_trigger/525aae1b) | 🟢 Recovered | `@release_series` baseline pointer broken ([TCR 60238](https://{web_host}/test_chain_run/60238)–[60272](https://{web_host}/test_chain_run/60272)); admin repointed baseline + force-rebaselined history on [TCR 60278](https://{web_host}/test_chain_run/60278); current runs pass organically |
 
    Use 🔴 for a real product regression, 🟡 for "needs a baseline update"
    (stale baseline, frozen/un-re-anchored comparison version, etc. — an
@@ -233,7 +266,11 @@ the sweep, rather than guessing from the server name.
    like "crashed" or "exit code 1") and always cite the **full docker tag +
    TCR ID** (e.g. `1.2.0-260730-7d6e54f`, TCR 60298), not the internal
    `version_identifier` name like `v0.0.130` — never abbreviate the docker
-   tag down to just the TCR number. Aim for roughly one sentence
+   tag down to just the TCR number. Link each "TCR NNNNN" citation and the
+   Trigger name to `{web_host}/test_chain_run/{tcr_id}` and
+   `{web_host}/test_trigger/{trigger_id}` respectively when step 1 derived
+   a web host; otherwise leave them as plain text — don't fabricate a
+   link. Aim for roughly one sentence
    (~25-30 words) when there's a single root cause; the cell wraps onto
    multiple lines in a properly-rendered table, that's fine and expected.
    If a trigger genuinely has two distinct root causes (e.g. a stale
