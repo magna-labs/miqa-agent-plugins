@@ -39,6 +39,11 @@ claude mcp list        # should show "miqa-aws" (or your configured server name)
 ```
 Type `/` in a session — you should see `/miqa:active-triggers` in the list.
 
+`MIQA_SERVER_URL`/`MIQA_API_KEY` are only read when the MCP server process
+starts. If you rotate your API key or point at a different Miqa
+deployment later, re-export the new values and restart Claude Code (or
+run `/reload-plugins`) — there's no hot-reload.
+
 ### What's included
 
 - **MCP server** — connects to your Miqa deployment via `uvx miqa-mcp`
@@ -61,6 +66,20 @@ run /miqa:active-triggers
 miqa trigger status
 ```
 
+### Update
+
+```bash
+claude plugin marketplace update magna-labs    # pull the latest marketplace metadata
+claude plugin update miqa@magna-labs           # update to the latest published version
+```
+Restart Claude Code (or run `/reload-plugins`) afterward to pick up the update.
+
+**Check what version you have installed:**
+```bash
+claude plugin list                       # installed plugins and their versions
+claude plugin details miqa@magna-labs    # this plugin's version + component inventory
+```
+
 ### Uninstall
 
 ```bash
@@ -75,4 +94,15 @@ claude plugin marketplace remove magna-labs    # remove the marketplace entirely
   set *before* running `claude plugin install`. Set them and reinstall.
 - **"Plugin not found in marketplace"** — your local marketplace cache may
   be stale; run `claude plugin marketplace update magna-labs` and retry.
+- **SSL error connecting to Miqa** (e.g. `self-signed certificate in
+  certificate chain`) — common on corporate/managed laptops behind a
+  TLS-inspecting VPN or proxy. `uvx` runs the MCP server in an isolated
+  Python environment that validates certs against its bundled `certifi`
+  CA list, not your OS trust store — so an org root CA that's trusted
+  system-wide (browsers, `curl`) may still be untrusted here. Fix: get
+  your org's root CA cert, then set `SSL_CERT_FILE` (or
+  `REQUESTS_CA_BUNDLE`) to its path before starting Claude Code, e.g.
+  ```bash
+  export SSL_CERT_FILE=/path/to/corp-root-ca.pem
+  ```
 - Still stuck? Ping help@magnalabs.co (or open an issue in this repo).
