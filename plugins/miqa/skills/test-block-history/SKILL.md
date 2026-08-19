@@ -39,9 +39,10 @@ attempted via the API.
    match, show the id+name pairs and ask which one (don't guess). If zero
    match, try a looser substring before telling the user nothing was found.
 
-2. **Show the version history table with a lightweight change gloss —
-   don't wait to be asked, and don't assume they know a version id.** Call
-   `api_get_test_block_versions(tb_id)` and post a table, newest first:
+2. **Show the version history table in batches of 10, each fully
+   glossed — don't wait to be asked, and don't assume they know a version
+   id.** Call `api_get_test_block_versions(tb_id, limit=10)` (newest
+   first) and post a table:
 
    | Version | Date created | Author | What changed (vs. previous) |
    |---|---|---|---|
@@ -51,14 +52,20 @@ attempted via the API.
 
    Mark `is_current`/`is_latest` with a leading 🟢 plus inline "(current)"
    on the version id, don't add a separate column for it — keeps the table
-   narrow. Compute the gloss for the most recent 10 transitions by fetching
-   each version via `api_get_test_block_version` and diffing consecutive
-   pairs (same structural-diff approach as the "Diffing two versions"
-   procedure below, condensed to one short clause — this table is for
-   picking a version, not auditing one). If `total_count` exceeds 10, leave
-   older rows' gloss as `—` and note more history exists with glosses
-   available on request — don't silently truncate the table itself, only
-   the gloss computation.
+   narrow. Gloss every row in the batch by fetching each version via
+   `api_get_test_block_version` and diffing consecutive pairs (same
+   structural-diff approach as the "Diffing two versions" procedure below,
+   condensed to one short clause — this table is for picking a version, not
+   auditing one). Never render a row with a blank/placeholder gloss —
+   every row shown gets a real one-line answer, or the row isn't shown yet.
+
+   If `total_count` exceeds 10, after the table say how many more versions
+   exist further back (with the oldest shown date, e.g. "12 more versions
+   exist before 2026-05-18") and ask whether to keep going — another batch
+   of 10, or stop here. Don't auto-continue into a second batch, and don't
+   silently truncate a large history without saying so; a TestBlock with
+   dozens of revisions should never dump them all (or a half-glossed table)
+   in one shot.
 
 3. **Auto-diff the most recent change — don't wait to be asked.** "What
    changed" is almost always the real question behind a revision-history
@@ -232,6 +239,10 @@ skim.
 - Always ship the version-history table (step 2) before diffing or copying
   anything — it's cheap and orients the user on how much history exists
   and lets them point at a version by content instead of an id.
+- Step 2's table is capped at 10 fully-glossed rows per batch, always. A
+  TestBlock with dozens of versions gets the newest 10 plus an offer to
+  keep paging back — never a 30-row table with 20 blank gloss cells, and
+  never a silent one-shot dump of the whole history.
 - The most recent change is auto-diffed without being asked (step 3);
   older pairs, specific pairs, and copy-to-clipboard requests all happen
   on request (step 4).
