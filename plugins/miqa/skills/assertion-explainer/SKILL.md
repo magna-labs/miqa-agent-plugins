@@ -1,8 +1,8 @@
 ---
 name: assertion-explainer
-description: Use when the user asks "what is this test block testing", "explain these assertions", "what does this check do", "walk me through this Test Block", or otherwise wants a plain-English readout of an existing Miqa TestBlock's or TestBlockVersion's assertions DSL (via a connected Miqa MCP server). The reverse direction of assertion-translator — takes an already-written assertions blob and explains what it actually checks, grounded in live Output Explorer vocabulary and MIQA docs rather than guessed from memory.
+description: Use when the user asks "what is this test block testing", "explain these assertions", "what does this check do", "walk me through this Test Block", or pastes/references a Miqa Output Explorer assertions JSON blob (from a connected TestBlock, a paste, or one already fetched earlier in the conversation) and wants a plain-English readout. The reverse direction of assertion-translator — takes an already-written assertions blob and explains what it actually checks, grounded in live Output Explorer vocabulary and MIQA docs rather than guessed from memory.
 metadata:
-  version: 1.0.0
+  version: 1.1.0
 ---
 
 # Miqa Assertion Explainer
@@ -22,19 +22,38 @@ reads; it never calls anything that writes or publishes.
 
 ## Procedure
 
-1. **Resolve the TestBlock and version.** If the user names a TestBlock, call
-   `api_get_test_blocks(q=<name>)`. Zero or multiple matches → follow the same
-   resolution rule as `test-block-history` step 1: don't guess, show the
-   id+name pairs and ask if there's more than one. Once resolved, pick the
-   version:
-   - No version specified → the current one. Call
-     `api_get_test_block_versions(tb_id, limit=1)` and take `current_version_id`.
-   - A specific version named (an id, "the one from last Tuesday", "before the
-     August 10 edit") → resolve it the way `test-block-history` does, using
-     that skill's version-history table if the user needs to browse for it.
-     Don't re-explain that resolution flow here — invoke it.
+1. **Resolve the assertions payload.** There are three ways in — figure out
+   which one applies before calling anything:
+   - **Pasted or inline JSON.** The user drops an `assertions` blob (or a
+     single check object) directly into the prompt. Use it as-is — no MCP
+     resolution needed. If it doesn't parse as valid JSON, or looks like a
+     truncated fragment (e.g. a lone `checks[]` array with no enclosing
+     `check_type` key), say what's wrong or ambiguous about it before
+     proceeding rather than guessing the missing structure. A pasted blob has
+     no TestBlock id, version id, author, or date attached — don't invent
+     one; the overview in step 5 just won't cite those.
+   - **Already in conversation context.** The user references a payload
+     already fetched earlier in this same conversation (e.g. "explain the
+     ci-smoke one from before," "what about that JSON you just pulled").
+     Reuse it directly — don't re-fetch. If enough has happened since that
+     the version could plausibly have changed (a long gap, an intervening
+     edit discussion), say you're working from the earlier fetch rather than
+     re-confirming silently; re-fetch only if the user asks or if staleness
+     actually matters for what they're asking.
+   - **A named TestBlock (the common case).** Call
+     `api_get_test_blocks(q=<name>)`. Zero or multiple matches → follow the
+     same resolution rule as `test-block-history` step 1: don't guess, show
+     the id+name pairs and ask if there's more than one. Once resolved, pick
+     the version:
+     - No version specified → the current one. Call
+       `api_get_test_block_versions(tb_id, limit=1)` and take
+       `current_version_id`.
+     - A specific version named (an id, "the one from last Tuesday", "before
+       the August 10 edit") → resolve it the way `test-block-history` does,
+       using that skill's version-history table if the user needs to browse
+       for it. Don't re-explain that resolution flow here — invoke it.
 
-   Fetch the full payload with `api_get_test_block_version(version_id)`.
+     Fetch the full payload with `api_get_test_block_version(version_id)`.
 
 2. **Ground the vocabulary before explaining anything.** Call
    `get_output_explorer_vocabulary()` once and keep its payload for the rest of
@@ -96,23 +115,29 @@ reads; it never calls anything that writes or publishes.
    (field pairs, match keys, whatever differs), the same way you'd explain "11
    checks all comparing a baseline execution stat to the matching
    `merged_qc.json` field" once instead of restating the same sentence 11
-   times. Lead with one or two sentences on what the TestBlock is for overall
+   times. Lead with one or two sentences on what the payload is for overall
    (what pipeline/output it's guarding, inferred from the fields and file
    patterns actually present — not from the TestBlock's name alone, since
-   names drift from content). End with any anomalies from step 4 as a short
-   "Notes" list, not buried mid-explanation.
+   names drift from content). If it came from a resolved TestBlock, name it
+   and its version; for a pasted or already-in-context blob with no
+   TestBlock identity, just skip that framing rather than fabricating a name.
+   End with any anomalies from step 4 as a short "Notes" list, not buried
+   mid-explanation.
 
    For a TestBlock with only a handful of checks and no shared template, skip
    the grouping ceremony and just walk through each check directly — the
    grouped-table format exists to keep a large, templated block legible, not
    as a mandatory structure for every explanation.
 
-6. **Point forward, don't duplicate.** If the user wants version history, a
-   diff against an older version, or to copy this version's assertions
-   somewhere, hand off to `test-block-history` rather than reimplementing that
-   here. If the user wants to add or change a check in this same style, hand
-   off to `assertion-translator`. This skill's job ends at "here's what it
-   currently checks."
+6. **Point forward, don't duplicate.** If the payload came from a resolved
+   TestBlock and the user wants version history, a diff against an older
+   version, or to copy this version's assertions somewhere, hand off to
+   `test-block-history` rather than reimplementing that here (a pasted or
+   already-in-context blob has no version history to hand off to — nothing to
+   do here in that case). If the user wants to add or change a check in this
+   same style, hand off to `assertion-translator` regardless of where the
+   payload came from. This skill's job ends at "here's what it currently
+   checks."
 
 ## Notes
 
