@@ -1,6 +1,6 @@
 ---
 name: assertion-explainer
-description: Use when the user asks "what is this test block testing", "explain these assertions", "what does this check do", "walk me through this Test Block", or pastes/references a Miqa Output Explorer assertions JSON blob (from a connected TestBlock, a paste, or one already fetched earlier in the conversation) and wants a plain-English readout. The reverse direction of assertion-translator — takes an already-written assertions blob and explains what it actually checks, grounded in live Output Explorer vocabulary and MIQA docs rather than guessed from memory.
+description: Use when the user asks "what is this test block testing", "explain these assertions", "what does this check do", "walk me through this Test Block", or pastes/references a Miqa Output Explorer assertions JSON blob (from a connected TestBlock, a paste, or one already fetched earlier in the conversation) and wants a plain-English readout. The reverse direction of assertion-translator — takes an already-written assertions blob and explains what it actually checks, grounded in live Output Explorer vocabulary and Miqa docs rather than guessed from memory.
 metadata:
   version: 1.1.0
 ---
@@ -9,9 +9,9 @@ metadata:
 
 `assertion-translator` goes prose/script → DSL. This skill goes the other way: an
 existing TestBlockVersion's `assertions` JSON → a plain-English account of what a
-reviewer actually gets checked. Same DSL, same evidence discipline — this skill
+test block or subset actually checks. Same DSL, same evidence discipline — this skill
 never explains a `check_type`, operator, or template by guessing what it probably
-does; it grounds every claim in `get_output_explorer_vocabulary()` and the MIQA
+does; it grounds every claim in `get_output_explorer_vocabulary()` and the Miqa
 docs, the same way `assertion-translator` grounds its translations.
 
 This skill calls tools named `api_get_test_blocks`, `api_get_test_block_versions`,
@@ -59,10 +59,10 @@ reads; it never calls anything that writes or publishes.
    `get_output_explorer_vocabulary()` once and keep its payload for the rest of
    the pass. Use it to confirm what each `check_type` and comparison operator
    actually means — never explain one from memory. If a `check_type` or field
-   in the payload isn't covered by the vocabulary call, check the MIQA docs via
-   `$MIQA_DOCS_BASE_URL/<path>` using the path table in
+   in the payload isn't covered by the vocabulary call, check the Miqa docs via
+   `$Miqa_DOCS_BASE_URL/<path>` using the path table in
    `../assertion-translator/references/doc-paths.md` (same base-URL resolution
-   rule as that skill: if `MIQA_DOCS_BASE_URL` isn't set, say so and explain
+   rule as that skill: if `Miqa_DOCS_BASE_URL` isn't set, say so and explain
    what you can from structure alone rather than stopping entirely — explaining
    is lower-stakes than publishing, so a partial answer with an explicit gap is
    fine here). If neither source resolves it, say plainly that this check
@@ -86,7 +86,7 @@ reads; it never calls anything that writes or publishes.
 4. **Interpret each check** using the same checklist `assertion-translator`
    uses to go the other direction, read in reverse:
    - **Data scope** — what file(s) or execution-stats namespace is this
-     reading (`file_rules.pattern`, `versions: [-1]` = current version only,
+     reading (`file_rules.pattern`, `versions: [-1]` = compares against latest version,
      `baseline_override` = a pinned/fixed reference file rather than "this
      trigger's baseline run", `execution_stats.*` = pipeline-level stats
      rather than an output file at all)?
@@ -142,7 +142,7 @@ reads; it never calls anything that writes or publishes.
 ## Notes
 
 - Every claim about what a `check_type` or operator means traces back to
-  `get_output_explorer_vocabulary()` or a cited MIQA doc path — never explain
+  `get_output_explorer_vocabulary()` or a cited Miqa doc path — never explain
   DSL semantics from memory, same rule `assertion-translator` follows in the
   translate direction.
 - Resolve `_extends`/`_variables`/`_precompute` before explaining, always. An
