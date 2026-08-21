@@ -1,6 +1,6 @@
 {
   "name": "miqa",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Connects Claude to Miqa for interacting with Miqa MCP server",
   "author": {
     "name": "Magna Labs"

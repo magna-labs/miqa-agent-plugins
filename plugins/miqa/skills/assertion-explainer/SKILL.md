@@ -60,9 +60,9 @@ reads; it never calls anything that writes or publishes.
    the pass. Use it to confirm what each `check_type` and comparison operator
    actually means — never explain one from memory. If a `check_type` or field
    in the payload isn't covered by the vocabulary call, check the Miqa docs via
-   `$Miqa_DOCS_BASE_URL/<path>` using the path table in
+   `$MIQA_DOCS_BASE_URL/<path>` using the path table in
    `../assertion-translator/references/doc-paths.md` (same base-URL resolution
-   rule as that skill: if `Miqa_DOCS_BASE_URL` isn't set, say so and explain
+   rule as that skill: if `MIQA_DOCS_BASE_URL` isn't set, say so and explain
    what you can from structure alone rather than stopping entirely — explaining
    is lower-stakes than publishing, so a partial answer with an explicit gap is
    fine here). If neither source resolves it, say plainly that this check
