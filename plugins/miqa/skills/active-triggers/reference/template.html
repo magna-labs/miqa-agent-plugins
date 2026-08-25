@@ -1,0 +1,474 @@
+<!--
+  Canonical template for this skill's HTML artifact deliverable.
+  Copy this file's content verbatim (everything below this comment) and only
+  replace the {{PLACEHOLDER}} tokens and the repeated blocks marked
+  <!-- REPEAT: ... --> / <!-- END REPEAT -->. Do not restyle, do not
+  re-derive the palette/type/layout from scratch, do not add new components.
+
+  Source of truth: published artifact
+  https://claude.ai/code/artifact/6b4c2484-ada8-4dee-8654-13bc8a993d24
+  (the user explicitly preferred this formatting over an earlier variant —
+  see SKILL.md's design-system section for the decision history).
+
+  Optional elements, include only when the data calls for them:
+    - .boundary  — three-point pass/fail timeline. Use when a case has a
+      clean single pass→fail boundary worth visualizing (last clean run →
+      first failing run → latest failing run). Skip for a trigger that's
+      been failing since before the window, or with no clean boundary.
+    - .proof     — numeric reconciliation block (bytes/bases/counts that
+      sum to something). Only when the root cause involves arithmetic
+      worth showing as a receipt. Omit entirely otherwise (don't force one).
+    - .aside     — a dashed-top footnote for a SEPARATE, lower-priority or
+      unrelated issue on the same trigger (e.g. a known check-config
+      problem alongside a real regression). Use this instead of a second
+      full narrative when the second issue doesn't need its own boundary/
+      proof — state plainly what kind of issue it is (regression /
+      needs-baseline-update / check-config) so it isn't mistaken for the
+      same root cause as the main case.
+  One <section class="case"> per currently-broken trigger being root-caused;
+  repeat the whole "Root Cause" <section> block per trigger.
+-->
+<title>{{SWEEP_TITLE}}</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --paper: #F5F4EF;
+    --surface: #FFFFFF;
+    --ink: #171F1C;
+    --muted: #5B655F;
+    --line: #DAD8D0;
+    --accent: #2B6E63;
+    --accent-soft: #E4EEEC;
+    --success: #3C8F5C;
+    --success-soft: #E3F1E7;
+    --warning: #B8842B;
+    --warning-soft: #F5EBD8;
+    --critical: #C1473A;
+    --critical-soft: #F8E4E1;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #101613;
+      --surface: #172420;
+      --ink: #E9EDE9;
+      --muted: #93A19B;
+      --line: #263430;
+      --accent: #6FC2B0;
+      --accent-soft: #1D3A34;
+      --success: #5FBE84;
+      --success-soft: #1B3324;
+      --warning: #E0A94D;
+      --warning-soft: #3A2E17;
+      --critical: #E37567;
+      --critical-soft: #3B2320;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper: #101613;
+    --surface: #172420;
+    --ink: #E9EDE9;
+    --muted: #93A19B;
+    --line: #263430;
+    --accent: #6FC2B0;
+    --accent-soft: #1D3A34;
+    --success: #5FBE84;
+    --success-soft: #1B3324;
+    --warning: #E0A94D;
+    --warning-soft: #3A2E17;
+    --critical: #E37567;
+    --critical-soft: #3B2320;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Source Serif 4", Georgia, serif;
+    font-size: 16px;
+    line-height: 1.55;
+    padding: 3rem 1.5rem 5rem;
+    display: flex;
+    justify-content: center;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .tile, .row { transition: background-color 0.15s ease; }
+  }
+
+  main {
+    width: 100%;
+    max-width: 900px;
+  }
+
+  .mono {
+    font-family: "IBM Plex Mono", ui-monospace, "SF Mono", Consolas, monospace;
+  }
+
+  a { color: var(--accent); text-decoration-color: color-mix(in srgb, var(--accent) 40%, transparent); text-underline-offset: 2px; }
+  a:hover { text-decoration-color: var(--accent); }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* Masthead */
+  .masthead {
+    border-bottom: 3px solid var(--ink);
+    padding-bottom: 1.75rem;
+    margin-bottom: 2rem;
+  }
+
+  .eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 0.6rem;
+  }
+
+  h1 {
+    font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    font-weight: 700;
+    font-size: clamp(1.9rem, 4.2vw, 2.6rem);
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    margin: 0 0 0.9rem;
+    text-wrap: balance;
+  }
+
+  .meta-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.6rem;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.82rem;
+    color: var(--muted);
+  }
+
+  .meta-strip strong {
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  /* Stat tiles */
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    margin-bottom: 2.5rem;
+  }
+
+  .tile {
+    background: var(--surface);
+    padding: 1.2rem 1.3rem;
+  }
+
+  .tile .n {
+    font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    font-weight: 700;
+    font-size: 2.2rem;
+    line-height: 1;
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tile .n.success { color: var(--success); }
+  .tile .n.critical { color: var(--critical); }
+
+  .tile .label {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-top: 0.35rem;
+  }
+
+  /* Section headers */
+  section { margin-bottom: 2.75rem; }
+
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 0.5rem;
+    margin-bottom: 1.1rem;
+  }
+
+  h2 {
+    font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    font-weight: 700;
+    font-size: 1.5rem;
+    letter-spacing: 0.01em;
+    margin: 0;
+  }
+
+  .section-note {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.76rem;
+    color: var(--muted);
+  }
+
+  /* Table */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.92rem; min-width: 560px; }
+
+  thead th {
+    text-align: left;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+    padding: 0.7rem 1rem;
+    background: var(--accent-soft);
+    border-bottom: 1px solid var(--line);
+  }
+
+  td {
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+
+  .trig-name { font-weight: 600; white-space: nowrap; }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.03em;
+    padding: 0.22em 0.6em;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+
+  .chip::before {
+    content: "";
+    width: 0.5em;
+    height: 0.5em;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  .chip.healthy { background: var(--success-soft); color: var(--success); }
+  .chip.failing { background: var(--critical-soft); color: var(--critical); }
+  .chip.warn { background: var(--warning-soft); color: var(--warning); }
+
+  .tag { font-family: "IBM Plex Mono", monospace; font-size: 0.85rem; }
+
+  .note { color: var(--muted); font-size: 0.88rem; }
+  .note a.tcr { font-family: "IBM Plex Mono", monospace; font-size: 0.82rem; }
+
+  /* Case file */
+  .case {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--critical);
+    padding: 1.6rem 1.8rem;
+  }
+  .case.warn { border-left-color: var(--warning); }
+
+  .case h3 {
+    font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin: 0 0 0.9rem;
+  }
+
+  .case p { margin: 0 0 0.9rem; }
+  .case p:last-child { margin-bottom: 0; }
+
+  .boundary {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.82rem;
+    margin: 1rem 0 1.3rem;
+    flex-wrap: wrap;
+  }
+
+  .boundary .pt {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+  .boundary .pt .d { color: var(--muted); font-size: 0.72rem; }
+  .boundary .arrow { color: var(--critical); font-size: 1.1rem; }
+
+  .proof {
+    background: var(--accent-soft);
+    border: 1px solid var(--line);
+    padding: 1.1rem 1.3rem;
+    margin: 1rem 0 1.3rem;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.86rem;
+    overflow-x: auto;
+  }
+
+  .proof .line { display: flex; justify-content: space-between; gap: 1rem; padding: 0.15rem 0; }
+  .proof .line.total { border-top: 1px solid var(--line); margin-top: 0.4rem; padding-top: 0.55rem; font-weight: 600; color: var(--accent); }
+  .proof .val { font-variant-numeric: tabular-nums; }
+
+  .aside {
+    font-size: 0.85rem;
+    color: var(--muted);
+    border-top: 1px dashed var(--line);
+    padding-top: 0.9rem;
+    margin-top: 0.3rem;
+  }
+
+  footer {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.74rem;
+    color: var(--muted);
+    border-top: 1px solid var(--line);
+    padding-top: 1.2rem;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  @media (max-width: 640px) {
+    .tiles { grid-template-columns: 1fr; }
+    footer { flex-direction: column; }
+  }
+</style>
+
+<main>
+
+  <div class="masthead">
+    <p class="eyebrow">Miqa &middot; Test Trigger Sweep</p>
+    <h1>{{SWEEP_TITLE}}</h1>
+    <div class="meta-strip">
+      <span><strong>Window</strong> {{WINDOW_DESCRIPTION}}</span>
+      <span><strong>Scope</strong> {{ACTIVE_COUNT}} of {{ENABLED_COUNT}} enabled triggers active</span>
+      <span><strong>Host</strong> {{WEB_HOST}}</span>
+    </div>
+  </div>
+
+  <div class="tiles">
+    <div class="tile">
+      <div class="n">{{ACTIVE_COUNT}}</div>
+      <div class="label">Active triggers</div>
+    </div>
+    <div class="tile">
+      <div class="n success">{{HEALTHY_COUNT}}</div>
+      <div class="label">Healthy</div>
+    </div>
+    <div class="tile">
+      <div class="n critical">{{BROKEN_COUNT}}</div>
+      <div class="label">{{BROKEN_TILE_LABEL}}</div>
+      <!-- BROKEN_TILE_LABEL: "Real regression" if all broken triggers are
+           that bucket; use a neutral label like "Broken" or "Needs action"
+           if the broken set mixes regression / baseline / check-config. -->
+    </div>
+  </div>
+
+  <section>
+    <div class="section-head">
+      <h2>Status</h2>
+      <span class="section-note">latest run per trigger</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Trigger</th><th>Status</th><th>Note</th></tr>
+        </thead>
+        <tbody>
+          <!-- REPEAT: one <tr> per active trigger from step 3's status table -->
+          <tr>
+            <td class="trig-name"><a href="{{WEB_HOST}}/test_trigger/{{TRIGGER_ID}}">{{TRIGGER_NAME}}</a></td>
+            <td><span class="chip {{healthy|failing|warn}}">{{Healthy|Failing|Incomplete}}</span></td>
+            <td class="note">{{Passing|Failing}} on <a class="tag" href="{{WEB_HOST}}/test_chain_run/{{LATEST_TCR}}">{{LATEST_DOCKER_TAG}}</a> <a class="tcr" href="{{WEB_HOST}}/test_chain_run/{{LATEST_TCR}}">TCR {{LATEST_TCR}}</a>{{, previously passing/failing clause per step 3 pattern rules}}</td>
+          </tr>
+          <!-- END REPEAT -->
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- REPEAT: one <section> per currently-broken trigger entering step 4 -->
+  <section>
+    <div class="section-head">
+      <h2>Root Cause &mdash; {{TRIGGER_NAME}}</h2>
+      <span class="section-note">{{one-clause scope note, e.g. "only currently-broken trigger" or "1 of 3 broken triggers"}}</span>
+    </div>
+
+    <div class="case">
+      <h3>{{Short, specific headline naming the mechanism, not a generic label — e.g. "Duplex bases reclassified, not lost", not "Test failing"}}</h3>
+
+      <!-- Optional: include only when there's a clean single pass->fail boundary worth visualizing -->
+      <div class="boundary">
+        <div class="pt">
+          <span>{{LAST_PASS_DATE}}</span>
+          <a class="tag" href="{{WEB_HOST}}/test_chain_run/{{LAST_PASS_TCR}}">{{LAST_PASS_TAG}}</a>
+          <span class="d">TCR {{LAST_PASS_TCR}} &middot; last clean run{{, N/N checks pass if known}}</span>
+        </div>
+        <span class="arrow">&rarr;</span>
+        <div class="pt">
+          <span>{{FIRST_FAIL_DATE}}</span>
+          <a class="tag" href="{{WEB_HOST}}/test_chain_run/{{FIRST_FAIL_TCR}}">{{FIRST_FAIL_TAG}}</a>
+          <span class="d">TCR {{FIRST_FAIL_TCR}} &middot; first failing build</span>
+        </div>
+        <span class="arrow">&rarr;</span>
+        <div class="pt">
+          <span>{{LATEST_DATE}}</span>
+          <a class="tag" href="{{WEB_HOST}}/test_chain_run/{{LATEST_TCR}}">{{LATEST_TAG}}</a>
+          <span class="d">TCR {{LATEST_TCR}} &middot; latest, still failing</span>
+        </div>
+      </div>
+
+      <p>{{One or two sentences naming exactly what check(s) fail and the
+      concrete diff — magnitude, direction, the actual metric name — not a
+      generic "content mismatch". Name the real product regression /
+      needs-baseline-update / check-config bucket implicitly through the
+      facts, not just a label.}}</p>
+
+      <!-- Optional: only when the root cause involves a numeric reconciliation worth showing as a receipt. Omit the whole block otherwise. -->
+      <div class="proof">
+        <div class="line"><span>{{term 1 label}}</span><span class="val">{{value}}</span></div>
+        <div class="line"><span>{{term 2 label}}</span><span class="val">{{value}}</span></div>
+        <div class="line total"><span>= {{result label}}</span><span class="val">{{sum}}</span></div>
+      </div>
+
+      <p>{{Follow-up sentence: what this means mechanically, and — critically —
+      whether it's confirmed intentional or still an open question. Don't
+      say "needs baseline update" here unless the baseline itself (its
+      pointer, its stored files) is the demonstrated problem right now.}}</p>
+
+      <!-- Optional: a separate, lower-priority or unrelated issue on the SAME trigger. State its bucket explicitly (regression / needs-baseline-update / check-config) so it reads as distinct from the main case above, not folded into the same diagnosis. -->
+      <div class="aside">
+        {{Unrelated to it: <describe the second issue and explicitly name
+        which of the three buckets it belongs to, e.g. "a separate, known
+        zero-tolerance-threshold issue ... trips on ordinary float noise
+        (check-config fix, not a code bug)". If the API couldn't expose
+        field-level detail for a WARN check, say so plainly here instead of
+        omitting the check entirely — e.g. "also WARNs at a 14.286%
+        aggregate diff on <check name>; the specific field isn't
+        retrievable through the connected tools, would need the raw file".}}
+      </div>
+    </div>
+  </section>
+  <!-- END REPEAT -->
+
+  <footer>
+    <span>{{WEB_HOST}}</span>
+    <span>Swept {{SWEEP_DATE}}</span>
+  </footer>
+
+</main>

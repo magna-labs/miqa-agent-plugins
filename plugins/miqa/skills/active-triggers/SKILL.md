@@ -2,7 +2,7 @@
 name: active-triggers
 description: Use when the user asks "what's going on with my [most] active test triggers", "miqa trigger status", "why are my miqa triggers failing", or otherwise wants a status + root-cause sweep across Miqa test triggers (via a connected Miqa MCP server). Produces a fast pass/fail table first, then root-causes what's currently broken and offers to dig into anything that already recovered.
 metadata:
-  version: 1.5.1
+  version: 1.6.1
 ---
 
 # Miqa Active Trigger Triage
@@ -198,11 +198,49 @@ the sweep, rather than guessing from the server name.
      `latest_status_event`/`execution_status` too, and lean on the most
      recent failing run (whose logs should still be live) for the
      detailed signature.
-   - Conclude explicitly: **real product regression** (code/model/CLI
-     changed and broke something, needs an engineering fix) vs. **needs a
-     baseline update** (baseline is stale/frozen or was swapped to something
-     incompatible — the owner just needs to rebaseline/re-anchor the
-     comparison version) — these need different owners to act on.
+   - Conclude explicitly, into one of three buckets — these need different
+     owners to act on, so don't collapse them:
+     - **real product regression** — code/model/CLI output actually changed
+       and content now differs from a *correct* baseline; needs an
+       engineering fix. If the team later confirms the new behavior is
+       intentional, the eventual fix is a rebaseline — but that
+       confirmation hasn't happened yet, so report it as a regression, not
+       as "needs baseline update", until it has.
+     - **needs a baseline update** — reserved for cases where the baseline
+       *itself* is demonstrably the problem right now: its pointer is
+       frozen/stale, it was swapped to an incompatible comparison version,
+       or its stored output files were deleted/moved. The tell: the run
+       would pass today against a different, current baseline. Don't apply
+       this label just because a past instance of the same trigger was
+       once fixed by rebaselining, or because an unconfirmed regression
+       *might* end in a rebaseline later — that's still bucket one.
+     - **check-config issue** — the run's content and the baseline are both
+       fine; the *check itself* is misconfigured (e.g. a percent-diff
+       assertion set to zero tolerance, so ordinary floating-point noise
+       trips FAIL every run regardless of version). Neither a regression
+       nor a stale baseline — it's a threshold/assertion fix owned by
+       whoever maintains the check definition, not the baseline owner.
+   - **A check whose diff detail is only an aggregate match percentage
+     (e.g. `"check_result": "14.286%"` with empty `diff_indexes`/`diffs`
+     in `diff_details_raw`) has no field-level breakdown available from
+     the API** — common for tabular file-compare checks. `inspect_execution_outputs`
+     can't fill this gap either: by design it returns only column
+     headers/types, never actual data values. Don't silently drop or
+     skip such a check because "there's nothing to show" — report the
+     aggregate diff you did see and say explicitly that the specific
+     differing field/metric isn't retrievable through the connected
+     tools, so a human would need to open the actual output file (e.g.
+     via the Miqa web UI) to identify it.
+   - **WARN-status checks are a different severity from FAIL, not a
+     different category of "ignore."** When pulling `get_test_chain_run_results`
+     for the run being root-caused, note any `check_status: "WARN"` entries
+     alongside the FAILs, even though a WARN alone doesn't flip the run's
+     overall outcome. Always flag a WARN you find — never drop it silently
+     — but always report it as secondary to whatever FAIL is the actual
+     root cause: it doesn't get its own 🔴/🟡 status chip or equal billing,
+     it's a "found this too, lower priority" note attached to the main
+     finding (see step 6 for exactly how that's presented in each output
+     format).
 
 5. **Before calling anything "stuck": check the runtime baseline.** If a run
    shows status `incomplete`/`Started` with `execution_end == execution_start`
@@ -250,11 +288,20 @@ the sweep, rather than guessing from the server name.
    | [ssvc-tn-release](https://{web_host}/test_trigger/54157ec2) | 🟢 Healthy, still running | [TCR 60304](https://{web_host}/test_chain_run/60304) within normal ~10.5h runtime, not stalled |
    | [demux-release](https://{web_host}/test_trigger/525aae1b) | 🟢 Recovered | `@release_series` baseline pointer broken ([TCR 60238](https://{web_host}/test_chain_run/60238)–[60272](https://{web_host}/test_chain_run/60272)); admin repointed baseline + force-rebaselined history on [TCR 60278](https://{web_host}/test_chain_run/60278); current runs pass organically |
 
-   Use 🔴 for a real product regression, 🟡 for "needs a baseline update"
-   (stale baseline, frozen/un-re-anchored comparison version, etc. — an
-   action item for whoever owns the test config, not a code bug), 🟢 for
-   healthy/passing/still-running-normally (including "Recovered" — currently
-   passing, dug into on request after having failed earlier in the window).
+   Use 🔴 for a real product regression, 🟡 for either "needs a baseline
+   update" (stale/frozen baseline pointer, comparison version swapped to
+   something incompatible, or baseline files deleted — the baseline itself
+   is the problem right now) or "check-config issue" (the check's own
+   assertion/threshold is misconfigured, e.g. a zero-tolerance percent-diff
+   catching float noise) — name which of the two it is explicitly in the
+   cell text rather than defaulting both to "needs baseline update"; they
+   have different owners (test-config/baseline owner vs. whoever maintains
+   the check definition). 🟢 for healthy/passing/still-running-normally
+   (including "Recovered" — currently passing, dug into on request after
+   having failed earlier in the window). Don't downgrade an unconfirmed
+   content regression to 🟡 just because a rebaseline is the likely
+   eventual fix — keep it 🔴 until the team confirms the new behavior is
+   intentional; see step 4's three-bucket breakdown.
    For a forced-rebaseline recovery specifically, check whether the *current*
    runs resolve their baseline and pass organically (`forced: false` in the
    latest `get_test_chain_run_environment`) — a bulk `forced: true` "Mark pass"
@@ -284,6 +331,17 @@ the sweep, rather than guessing from the server name.
    paragraphs below the table — the table is the deliverable; a
    one-sentence lead-in and closing note are enough surrounding text.
 
+   **A WARN-level finding is not a second root cause — never give it its
+   own status emoji or equal billing with a FAIL.** It's a lower-priority
+   footnote to whatever FAIL is the actual Status/root cause, but it must
+   still be mentioned, never dropped for tidiness. Append it to the end of
+   the cell as a clearly demoted clause, e.g. "; also WARNs on `<check
+   name>` (14.3% aggregate diff, field-level detail not available via the
+   API)" — no separate emoji, no bold sub-heading, no combined-chip
+   treatment like the two-FAIL case above. This keeps the banner reading
+   as one clear severity while still surfacing the WARN for whoever wants
+   to dig further.
+
    Output this as a plain markdown table directly in the chat response —
    do not publish it as an Artifact (or any other rendered/exported
    format) unless the user asks for that. A terminal-rendered markdown
@@ -309,41 +367,54 @@ the sweep, rather than guessing from the server name.
    ask whether to update this standing template or just one-off it.
 
    **Standing design system for this skill's artifacts:**
-   - **Fonts** (Google Fonts link, load exactly this):
-     `https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap`
-     — Archivo for headings/numerals (`font-weight: 700`, tight-ish
-     `letter-spacing: -0.01em`, never condensed/display-style), Source
-     Serif 4 for body prose/notes, IBM Plex Mono for every docker tag, TCR
-     id, timestamp, and table header label.
-   - **Palette** (light tokens on bare `:root`, redefined under both
-     `@media (prefers-color-scheme: dark)` guarded by
-     `:root:not([data-theme="light"])` and under `:root[data-theme="dark"]`):
-     `--paper #F5F4EF` / dark `#101613`, `--surface #FFFFFF` / dark
-     `#172420`, `--ink #171F1C` / dark `#E9EDE9`, `--muted #5B655F` / dark
-     `#93A19B`, `--line #DAD8D0` / dark `#263430`, `--accent #2B6E63`
-     (lab-teal) / dark `#6FC2B0`, `--accent-soft #E4EEEC` / dark `#1D3A34`,
-     `--success #3C8F5C` / dark `#5FBE84`, `--warning #B8842B` / dark
-     `#E0A94D`, `--critical #C1473A` / dark `#E37567` (each with a `-soft`
-     background variant, e.g. `--success-soft #E3F1E7` / dark `#1B3324`).
-     Semantic 🔴/🟡/🟢 states render as small dot-chips in these
-     success/warning/critical colors, kept distinct from the teal accent.
-   - **Layout** — same structure every time, only the content changes:
-     a masthead (eyebrow label, `<h1>` naming the sweep + date, a
-     mono meta strip with window/scope/host); a 3-up stat-tile row (active
-     trigger count, healthy count, broken count); the step-3 table styled
-     as a manifest table (status chip + mono tag/TCR links); a step-6
-     root-cause section per broken trigger styled as a "case" card
-     (`border-left: 4px solid var(--critical)`) — for a trigger whose
-     root cause involves a numeric reconciliation (bytes/bases/counts that
-     sum to something), include a `.proof` block isolating that arithmetic,
-     the way a receipt would; a plain mono footer with host + sweep date.
+   - **Use `reference/template.html` (in this skill's directory) as the
+     literal starting file.** Copy its content verbatim into your working
+     file, then only replace the `{{PLACEHOLDER}}` tokens and fill in the
+     repeated blocks (status-table rows, one root-cause `<section>` per
+     broken trigger) with this sweep's data. Do not restyle, do not
+     re-derive the palette/type/layout from scratch, do not invent new
+     components — the point of a fixed template file (rather than a prose
+     description) is that repeat sweeps are byte-for-byte the same design,
+     not a redesign-by-memory each time.
+   - **Fonts**: Archivo for headings/numerals, Source Serif 4 for body
+     prose, IBM Plex Mono for every docker tag, TCR id, timestamp, chip,
+     and table header label — all wired up already in the template's
+     `<link>` and `<style>`.
+   - **Palette**: warm paper background, teal accent, IBM-Plex-Mono chips
+     for status (`.chip.healthy` / `.chip.failing` / `.chip.warn`), full
+     light/dark tokens — all defined in the template's `:root` blocks, see
+     that file for exact values. Don't hand-roll new colors.
+   - **Layout** — same structure every time, only the content changes: a
+     masthead (eyebrow, `<h1>` naming the sweep + date, mono meta strip
+     with window/scope/host); a 3-up stat-tile row; the step-3 status
+     table (status chip + mono tag/TCR links); one "Root Cause —
+     `{trigger}`" section per broken trigger, each a `.case` card. Within a
+     case, use the template's optional `.boundary` three-point timeline
+     when there's a clean single pass→fail boundary worth visualizing, a
+     `.proof` block only when the root cause involves a numeric
+     reconciliation worth showing as a receipt (don't force one when there
+     isn't one), and `.aside` for anything lower-priority than the case's
+     main FAIL narrative: a second, unrelated FAIL-level issue on the same
+     trigger (state explicitly which of step 4's three buckets — regression
+     / needs-baseline-update / check-config — it belongs to, don't fold it
+     into the main narrative's diagnosis), and separately, any WARN-status
+     finding uncovered while root-causing (see step 6's "WARN is not a
+     second root cause" rule) — always flagged, never given the main case's
+     `<h3>`/`.boundary`/`.proof` treatment, always read as a footnote. A
+     plain mono footer with host + sweep date closes the page.
    - **Title & favicon** — title names the sweep as a plain noun phrase,
      no dash-appended explainer (e.g. "August 25 Trigger Sweep", not
      "Trigger Health — Aug 25"); favicon is always 🧬.
-   - This system was designed once via `artifact-design` (see the artifact
-     published in the session that introduced this rule) and is now locked
-     in here — don't re-derive palette/type/layout from scratch on future
-     runs, just fill this template with the current sweep's data.
+   - **Design history**: an earlier version of this template used a
+     different card/chip treatment and (wrongly) filed a check-config issue
+     under a "needs baseline update" chip. The user explicitly preferred
+     the version now captured in `reference/template.html` (published at
+     https://claude.ai/code/artifact/6b4c2484-ada8-4dee-8654-13bc8a993d24)
+     over that earlier one — this is the locked version going forward. If
+     the user asks for a different look in the future, ask whether to
+     update `reference/template.html` (standing change) or just one-off it
+     for this sweep, and if they confirm a standing change, edit the
+     template file itself so it stays the single source of truth.
 
    The terminal table's ~25-30 word cap on Note/Root-cause cells exists
    only to dodge a specific terminal-renderer bug (wide tables silently
