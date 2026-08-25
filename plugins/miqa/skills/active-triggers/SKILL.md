@@ -289,6 +289,32 @@ the sweep, rather than guessing from the server name.
    format) unless the user explicitly asks for that. A terminal-rendered
    markdown table is the expected deliverable for this skill.
 
+   **If the user explicitly asks for an Artifact, rendered report, or HTML
+   version** (either up front, or as a follow-up after seeing the terminal
+   table): load the `artifact-design` skill and publish an HTML artifact
+   summarizing the same findings — this is additive, not a replacement for
+   the terminal deliverable above, which still gets sent first/regardless.
+   Treat this as the "utilitarian" calibration in that skill (a status
+   report, not a landing page): a clear masthead (sweep scope, window,
+   summary counts by status), the step-3 quick-status table and step-6
+   root-cause table rendered as real styled tables (not screenshots of
+   markdown), semantic color for the 🔴/🟡/🟢 states kept distinct from
+   whatever accent color the design uses, and working links to
+   `{web_host}/test_trigger/{trigger_id}` and
+   `{web_host}/test_chain_run/{tcr_id}` wherever step 1 derived a web host
+   (same linking rule as the terminal tables — plain text if no web host
+   could be derived, never a fabricated link). Do not thin out root-cause
+   text to make the layout prettier — the same ~25-30 word, full-docker-tag,
+   never-drop-a-second-failure-mode rules from the terminal table apply
+   verbatim in the artifact. Give the artifact a real title and favicon per
+   that skill's conventions (e.g. a status/pulse-style emoji); pick a title
+   that names the sweep, not a generic label like "Test Report" (e.g.
+   "Trigger Health — {date or scope}" if a date/scope is known, otherwise a
+   short descriptive name). When re-running this skill as a follow-up ask,
+   publish a new artifact rather than trying to update a prior one from a
+   different conversation, unless the user names an existing artifact URL
+   to redeploy.
+
    **Why cell length matters here, specifically:** some terminal markdown
    renderers silently fall back to a stacked "**Trigger:** x /
    **Status:** y / **Root cause:** z" block-per-row layout — visually
