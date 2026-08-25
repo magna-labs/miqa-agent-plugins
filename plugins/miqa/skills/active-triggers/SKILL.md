@@ -2,7 +2,7 @@
 name: active-triggers
 description: Use when the user asks "what's going on with my [most] active test triggers", "miqa trigger status", "why are my miqa triggers failing", or otherwise wants a status + root-cause sweep across Miqa test triggers (via a connected Miqa MCP server). Produces a fast pass/fail table first, then root-causes what's currently broken and offers to dig into anything that already recovered.
 metadata:
-  version: 1.4.0
+  version: 1.5.1
 ---
 
 # Miqa Active Trigger Triage
@@ -299,30 +299,80 @@ the sweep, rather than guessing from the server name.
 
    **If the user asks for an Artifact, rendered report, or HTML
    version** (up front, as a follow-up after seeing the terminal table, or
-   by accepting the offer above): load the `artifact-design` skill and
-   publish an HTML artifact
-   summarizing the same findings — this is additive, not a replacement for
-   the terminal deliverable above, which still gets sent first/regardless.
-   Treat this as the "utilitarian" calibration in that skill (a status
-   report, not a landing page): a clear masthead (sweep scope, window,
-   summary counts by status), the step-3 quick-status table and step-6
-   root-cause table rendered as real styled tables (not screenshots of
-   markdown), semantic color for the 🔴/🟡/🟢 states kept distinct from
-   whatever accent color the design uses, and working links to
-   `{web_host}/test_trigger/{trigger_id}` and
+   by accepting the offer above): publish an HTML artifact summarizing the
+   same findings — this is additive, not a replacement for the terminal
+   deliverable above, which still gets sent first/regardless. Reuse the
+   fixed design system below verbatim rather than running a fresh
+   `artifact-design` pass each time — the point is that repeat sweeps look
+   like the same report, not a redesign per run. Only fall back to
+   `artifact-design` if the user asks for a different look, in which case
+   ask whether to update this standing template or just one-off it.
+
+   **Standing design system for this skill's artifacts:**
+   - **Fonts** (Google Fonts link, load exactly this):
+     `https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap`
+     — Archivo for headings/numerals (`font-weight: 700`, tight-ish
+     `letter-spacing: -0.01em`, never condensed/display-style), Source
+     Serif 4 for body prose/notes, IBM Plex Mono for every docker tag, TCR
+     id, timestamp, and table header label.
+   - **Palette** (light tokens on bare `:root`, redefined under both
+     `@media (prefers-color-scheme: dark)` guarded by
+     `:root:not([data-theme="light"])` and under `:root[data-theme="dark"]`):
+     `--paper #F5F4EF` / dark `#101613`, `--surface #FFFFFF` / dark
+     `#172420`, `--ink #171F1C` / dark `#E9EDE9`, `--muted #5B655F` / dark
+     `#93A19B`, `--line #DAD8D0` / dark `#263430`, `--accent #2B6E63`
+     (lab-teal) / dark `#6FC2B0`, `--accent-soft #E4EEEC` / dark `#1D3A34`,
+     `--success #3C8F5C` / dark `#5FBE84`, `--warning #B8842B` / dark
+     `#E0A94D`, `--critical #C1473A` / dark `#E37567` (each with a `-soft`
+     background variant, e.g. `--success-soft #E3F1E7` / dark `#1B3324`).
+     Semantic 🔴/🟡/🟢 states render as small dot-chips in these
+     success/warning/critical colors, kept distinct from the teal accent.
+   - **Layout** — same structure every time, only the content changes:
+     a masthead (eyebrow label, `<h1>` naming the sweep + date, a
+     mono meta strip with window/scope/host); a 3-up stat-tile row (active
+     trigger count, healthy count, broken count); the step-3 table styled
+     as a manifest table (status chip + mono tag/TCR links); a step-6
+     root-cause section per broken trigger styled as a "case" card
+     (`border-left: 4px solid var(--critical)`) — for a trigger whose
+     root cause involves a numeric reconciliation (bytes/bases/counts that
+     sum to something), include a `.proof` block isolating that arithmetic,
+     the way a receipt would; a plain mono footer with host + sweep date.
+   - **Title & favicon** — title names the sweep as a plain noun phrase,
+     no dash-appended explainer (e.g. "August 25 Trigger Sweep", not
+     "Trigger Health — Aug 25"); favicon is always 🧬.
+   - This system was designed once via `artifact-design` (see the artifact
+     published in the session that introduced this rule) and is now locked
+     in here — don't re-derive palette/type/layout from scratch on future
+     runs, just fill this template with the current sweep's data.
+
+   The terminal table's ~25-30 word cap on Note/Root-cause cells exists
+   only to dodge a specific terminal-renderer bug (wide tables silently
+   collapsing into a stacked block layout — see step 6's "why cell length
+   matters" note); it does not apply to the artifact, which isn't a
+   markdown table and can't collapse that way. Root-cause cells in the
+   HTML version may run notably longer than the terminal cap — enough to
+   fully explain the mechanism (e.g. carry the arithmetic reconciliation,
+   name both the earlier and later failure signature on a two-issue
+   trigger, quote the actual log line) rather than compressing it to a
+   single headline sentence. To keep a longer cell from overwhelming the
+   table visually, drop its font-size a step below the surrounding body
+   text and give it a touch more line-height, rather than shortening the
+   content — table proportions are a layout problem to solve with type
+   size, not a reason to cut real findings. This is not license to pad
+   with filler, throat-clearing, or restating the Status column in prose:
+   every extra sentence should be information the terminal cell had to
+   drop for space, not new wordiness for its own sake. Never thin out
+   root-cause text to make the layout prettier in the other direction
+   either — the full-docker-tag, never-drop-a-second-failure-mode rules
+   from the terminal table still apply verbatim, this is strictly an
+   allowance for more, not less. Working links
+   to `{web_host}/test_trigger/{trigger_id}` and
    `{web_host}/test_chain_run/{tcr_id}` wherever step 1 derived a web host
    (same linking rule as the terminal tables — plain text if no web host
-   could be derived, never a fabricated link). Do not thin out root-cause
-   text to make the layout prettier — the same ~25-30 word, full-docker-tag,
-   never-drop-a-second-failure-mode rules from the terminal table apply
-   verbatim in the artifact. Give the artifact a real title and favicon per
-   that skill's conventions (e.g. a status/pulse-style emoji); pick a title
-   that names the sweep, not a generic label like "Test Report" (e.g.
-   "Trigger Health — {date or scope}" if a date/scope is known, otherwise a
-   short descriptive name). When re-running this skill as a follow-up ask,
-   publish a new artifact rather than trying to update a prior one from a
-   different conversation, unless the user names an existing artifact URL
-   to redeploy.
+   could be derived, never a fabricated link). When re-running this skill
+   as a follow-up ask, publish a new artifact rather than trying to update
+   a prior one from a different conversation, unless the user names an
+   existing artifact URL to redeploy.
 
    **Why cell length matters here, specifically:** some terminal markdown
    renderers silently fall back to a stacked "**Trigger:** x /
