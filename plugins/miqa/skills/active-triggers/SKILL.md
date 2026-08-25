@@ -286,12 +286,21 @@ the sweep, rather than guessing from the server name.
 
    Output this as a plain markdown table directly in the chat response —
    do not publish it as an Artifact (or any other rendered/exported
-   format) unless the user explicitly asks for that. A terminal-rendered
-   markdown table is the expected deliverable for this skill.
+   format) unless the user asks for that. A terminal-rendered markdown
+   table is the expected deliverable for this skill.
 
-   **If the user explicitly asks for an Artifact, rendered report, or HTML
-   version** (either up front, or as a follow-up after seeing the terminal
-   table): load the `artifact-design` skill and publish an HTML artifact
+   After the table, add one short closing line offering the rendered
+   version too, e.g. "Want this as a polished, shareable report? I can
+   publish it." — don't guess or assume interest, just surface the option
+   so the user doesn't have to already know an Artifact version exists in
+   order to ask for it. Don't publish anything unless they say yes; if
+   they don't respond to the offer or move on to something else, drop it,
+   don't re-offer on a later sweep in the same conversation.
+
+   **If the user asks for an Artifact, rendered report, or HTML
+   version** (up front, as a follow-up after seeing the terminal table, or
+   by accepting the offer above): load the `artifact-design` skill and
+   publish an HTML artifact
    summarizing the same findings — this is additive, not a replacement for
    the terminal deliverable above, which still gets sent first/regardless.
    Treat this as the "utilitarian" calibration in that skill (a status
