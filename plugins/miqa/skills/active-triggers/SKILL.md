@@ -2,7 +2,7 @@
 name: active-triggers
 description: Use when the user asks "what's going on with my [most] active test triggers", "miqa trigger status", "why are my miqa triggers failing", or otherwise wants a status + root-cause sweep across Miqa test triggers (via a connected Miqa MCP server). Produces a fast pass/fail table first, then root-causes what's currently broken and offers to dig into anything that already recovered.
 metadata:
-  version: 1.6.1
+  version: 1.7.0
 ---
 
 # Miqa Active Trigger Triage
@@ -25,22 +25,22 @@ the sweep, rather than guessing from the server name.
 
 1. **List and filter.** Call `list_test_triggers`. Keep only `disabled: false`
    entries — never spend budget investigating disabled triggers.
-   - Also derive the Miqa web UI host once, up front, so trigger names and
-     docker tags can be posted as clickable links for the rest of this
-     sweep (steps 3 and 6): read the `MIQA_SERVER_URL` env var backing the
-     connected Miqa MCP server (e.g. a one-off `echo $MIQA_SERVER_URL`).
-     If it matches `api.<env>.miqa.io` (starts with `api.`, ends with
-     `.miqa.io`), the web host is `<env>.miqa.io` — strip the leading
-     `api.`. If it doesn't match that shape (e.g. a raw gateway/Zuplo-style
-     host with no `.miqa.io` suffix), don't guess a web host — render
-     trigger names and version tags as plain text for the rest of the
-     sweep, never fabricate a link. When a web host is available: a
-     trigger name links to `{web_host}/test_trigger/{trigger_id}`; a
-     specific run/version citation links to
-     `{web_host}/test_chain_run/{tcr_id}`. Terminal markdown renderers
-     measure table column width by the link's *visible text*, not the
-     underlying URL, so wrapping names/tags in links doesn't change any of
-     the cell-width guidance below.
+   - Also derive the Miqa web UI host once, up front: read the
+     `MIQA_SERVER_URL` env var backing the connected Miqa MCP server (e.g.
+     a one-off `echo $MIQA_SERVER_URL`). If it matches `api.<env>.miqa.io`
+     (starts with `api.`, ends with `.miqa.io`), the web host is
+     `<env>.miqa.io` — strip the leading `api.`. If it doesn't match that
+     shape (e.g. a raw gateway/Zuplo-style host with no `.miqa.io`
+     suffix), don't guess a web host at all.
+   - This host is used in two places only: the standing artifact template
+     (step 6), which always renders real links, and on-demand TCR links
+     (see step 3) — never as inline markdown links in the terminal tables
+     themselves. Terminal tables (steps 3 and 6) always render trigger
+     names and docker tags/TCR citations as **plain text**, even when a
+     web host was derived — this was a deliberate change after the inline
+     links rendered as messy raw `[text](url)` markup in this user's
+     terminal rather than clean hyperlinks. Don't reintroduce inline
+     table links; the artifact is the vehicle for clickable links.
 
 2. **Find which enabled triggers are actually active.** "Enabled" and
    "recently running" are different things — triggers can sit enabled but
@@ -69,7 +69,7 @@ the sweep, rather than guessing from the server name.
      clean transition). A window with no flip at all (monotonic pass or
      monotonic fail) has no pattern to report, just the current version. All
      of this feeds step 3's merged Status + Note directly, including the TCR
-     ids used to link tags per step 1's host-derivation note.
+     ids cited (as plain text) in that Note.
 
 3. **Post the quick status table immediately — before doing any root-cause
    digging.** The user wants to see what's green *first*; the "why did it
@@ -80,32 +80,30 @@ the sweep, rather than guessing from the server name.
 
    | Trigger | Status | Note |
    |---|---|---|
-   | [demux-release](https://{web_host}/test_trigger/525aae1b) | 🟢 Healthy | Passing on [`1.2.0-260816-b8833cb`](https://{web_host}/test_chain_run/60327), previously failing up to 2026-08-09 ([`1.2.0-DRAFT-260809-c73ae0c`](https://{web_host}/test_chain_run/60272)) |
-   | [gdc-str-release](https://{web_host}/test_trigger/fb8e25c4) | 🟢 Healthy | Intermittent — flips pass/fail across the window; currently on [`1.2.0-260816-b8833cb`](https://{web_host}/test_chain_run/60326) |
-   | [rc-release](https://{web_host}/test_trigger/46f9b657) | 🟢 Healthy | Passing on [`1.2.0-260816-b8833cb`](https://{web_host}/test_chain_run/60325) |
-   | [ssvc-tn-release](https://{web_host}/test_trigger/54157ec2) | 🔴 Failing | Failing on [`1.2.0-DRAFT-260811-6e5c587`](https://{web_host}/test_chain_run/60262), previously passing |
+   | alpha-release | 🟢 Healthy | Passing on `1.2.0-260816-b8833cb` (TCR 60327), previously failing up to 2026-08-09 (`1.2.0-DRAFT-260809-c73ae0c`, TCR 60272) |
+   | bravo-release | 🟢 Healthy | Intermittent — flips pass/fail across the window; currently on `1.2.0-260816-b8833cb` (TCR 60326) |
+   | charlie-release | 🟢 Healthy | Passing on `1.2.0-260816-b8833cb` (TCR 60325) |
+   | delta-release | 🔴 Failing | Failing on `1.2.0-DRAFT-260811-6e5c587` (TCR 60262), previously passing |
 
    Use 🟢 if the latest run passed, 🔴 if it failed, 🟡 if it's
    `incomplete`/`Started` (don't call this a stall yet — that's step 6). This
    table is a standalone deliverable — send it and stop before moving on to
    step 4, don't silently chain straight into root-causing.
 
-   Trigger names link to `{web_host}/test_trigger/{trigger_id}` per step
-   1's host-derivation note (plain text if no web host could be derived).
-   The Note column always leads with a base clause naming what version
-   the trigger is currently on: "Passing on `X`" or "Failing on `X`",
-   using the bare docker tag (strip the registry/image path, e.g.
-   `registry.example.com/company/variant_calling:1.2.0-260816-b8833cb` →
+   Trigger names and docker tags are always plain text in this table —
+   never wrap them in markdown links (see step 1's note on why). The Note
+   column always leads with a base clause naming what version the trigger
+   is currently on: "Passing on `X`" or "Failing on `X`", using the bare
+   docker tag (strip the registry/image path, e.g.
+   `registry.example.com/company/pipeline-a:1.2.0-260816-b8833cb` →
    `1.2.0-260816-b8833cb`) so the cell stays narrow — but once stripped,
    never truncate or abbreviate the tag itself, same rule as step 6's
-   root-cause table. Link `X` (and any other tag mentioned in the same
-   cell) to that specific run's `{web_host}/test_chain_run/{tcr_id}` when
-   a web host is available. Layer whatever pattern step 2 found on top of
-   that base clause, don't replace it:
+   root-cause table. Cite the TCR id in parentheses after the tag, e.g.
+   "`X` (TCR NNNNN)", as plain text. Layer whatever pattern step 2 found
+   on top of that base clause, don't replace it:
    - **recovered** — append ", previously failing up to {date of the last
-     failing run} (`{that run's version}`)", e.g. "Passing on `X`,
-     previously failing up to 2026-08-09 (`Y`)", with `Y` linked to its
-     own TCR the same way as `X`.
+     failing run} (`{that run's version}`, TCR {id})", e.g. "Passing on
+     `X`, previously failing up to 2026-08-09 (`Y`, TCR NNNNN)".
    - **newly failing** — append ", previously passing"; add the last
      passing run's date/version too when it fits cleanly (e.g. "Failing
      on `X`, previously passing until 2026-08-11 (`Y`)"), but the bare
@@ -116,6 +114,12 @@ the sweep, rather than guessing from the server name.
      clean boundary to cite.
    - **monotonic (no flip)** — no extra clause; the base "Passing on `X`"
      / "Failing on `X`" is the whole Note.
+
+   If the user asks for a link to a specific trigger or TCR mentioned in
+   the table (rather than the full artifact), give it on demand as a
+   short plain list right below the table (e.g. "TCR 60327:
+   {web_host}/test_chain_run/60327") — don't inline it back into the
+   table, and don't proactively dump a links list unasked.
 
    This is still purely descriptive of the pulled window, not an
    explanation of *why* anything changed — keep it to one short sentence
@@ -283,10 +287,10 @@ the sweep, rather than guessing from the server name.
 
    | Trigger | Status | Root cause |
    |---|---|---|
-   | [gdc-str-release](https://{web_host}/test_trigger/fb8e25c4) | 🔴 Real regression | CLI flag renamed `--bam-input`→`--bam`, crashing since [TCR 60301](https://{web_host}/test_chain_run/60301) (`1.2.0-DRAFT-260811-6e5c587`) |
-   | [rc-release](https://{web_host}/test_trigger/46f9b657) | 🟡 Needs baseline update | `@release_series` baseline frozen since [TCR 59905](https://{web_host}/test_chain_run/59905), "no comparison version found" |
-   | [ssvc-tn-release](https://{web_host}/test_trigger/54157ec2) | 🟢 Healthy, still running | [TCR 60304](https://{web_host}/test_chain_run/60304) within normal ~10.5h runtime, not stalled |
-   | [demux-release](https://{web_host}/test_trigger/525aae1b) | 🟢 Recovered | `@release_series` baseline pointer broken ([TCR 60238](https://{web_host}/test_chain_run/60238)–[60272](https://{web_host}/test_chain_run/60272)); admin repointed baseline + force-rebaselined history on [TCR 60278](https://{web_host}/test_chain_run/60278); current runs pass organically |
+   | bravo-release | 🔴 Real regression | CLI flag renamed `--input-mode`→`--mode`, crashing since TCR 60301 (`1.2.0-DRAFT-260811-6e5c587`) |
+   | charlie-release | 🟡 Needs baseline update | `@release_series` baseline frozen since TCR 59905, "no comparison version found" |
+   | delta-release | 🟢 Healthy, still running | TCR 60304 within normal ~10.5h runtime, not stalled |
+   | alpha-release | 🟢 Recovered | `@release_series` baseline pointer broken (TCR 60238–60272); admin repointed baseline + force-rebaselined history on TCR 60278; current runs pass organically |
 
    Use 🔴 for a real product regression, 🟡 for either "needs a baseline
    update" (stale/frozen baseline pointer, comparison version swapped to
@@ -313,11 +317,10 @@ the sweep, rather than guessing from the server name.
    like "crashed" or "exit code 1") and always cite the **full docker tag +
    TCR ID** (e.g. `1.2.0-260730-7d6e54f`, TCR 60298), not the internal
    `version_identifier` name like `v0.0.130` — never abbreviate the docker
-   tag down to just the TCR number. Link each "TCR NNNNN" citation and the
-   Trigger name to `{web_host}/test_chain_run/{tcr_id}` and
-   `{web_host}/test_trigger/{trigger_id}` respectively when step 1 derived
-   a web host; otherwise leave them as plain text — don't fabricate a
-   link. Aim for roughly one sentence
+   tag down to just the TCR number. Trigger names and "TCR NNNNN"
+   citations are always plain text in this table too, same as step 3 —
+   give a link only if the user asks for one (see step 3's on-demand
+   note). Aim for roughly one sentence
    (~25-30 words) when there's a single root cause; the cell wraps onto
    multiple lines in a properly-rendered table, that's fine and expected.
    If a trigger genuinely has two distinct root causes (e.g. a stale
@@ -348,12 +351,15 @@ the sweep, rather than guessing from the server name.
    table is the expected deliverable for this skill.
 
    After the table, add one short closing line offering the rendered
-   version too, e.g. "Want this as a polished, shareable report? I can
-   publish it." — don't guess or assume interest, just surface the option
-   so the user doesn't have to already know an Artifact version exists in
-   order to ask for it. Don't publish anything unless they say yes; if
-   they don't respond to the offer or move on to something else, drop it,
-   don't re-offer on a later sweep in the same conversation.
+   version too — and since the terminal tables are plain text with no
+   inline links, this is also where clickable links actually live, so say
+   so: e.g. "Want the interactive version — clickable links to every
+   trigger and run — as a shareable report? I can publish it." Don't
+   guess or assume interest, just surface the option so the user doesn't
+   have to already know an Artifact version exists in order to ask for
+   it. Don't publish anything unless they say yes; if they don't respond
+   to the offer or move on to something else, drop it, don't re-offer on
+   a later sweep in the same conversation.
 
    **If the user asks for an Artifact, rendered report, or HTML
    version** (up front, as a follow-up after seeing the terminal table, or
@@ -436,14 +442,15 @@ the sweep, rather than guessing from the server name.
    root-cause text to make the layout prettier in the other direction
    either — the full-docker-tag, never-drop-a-second-failure-mode rules
    from the terminal table still apply verbatim, this is strictly an
-   allowance for more, not less. Working links
-   to `{web_host}/test_trigger/{trigger_id}` and
+   allowance for more, not less. Unlike the terminal tables, the artifact
+   should use working links to `{web_host}/test_trigger/{trigger_id}` and
    `{web_host}/test_chain_run/{tcr_id}` wherever step 1 derived a web host
-   (same linking rule as the terminal tables — plain text if no web host
-   could be derived, never a fabricated link). When re-running this skill
-   as a follow-up ask, publish a new artifact rather than trying to update
-   a prior one from a different conversation, unless the user names an
-   existing artifact URL to redeploy.
+   (plain text only if no web host could be derived, never a fabricated
+   link) — the artifact is the intended home for clickable links in this
+   skill. When re-running this skill as a follow-up ask, publish a new
+   artifact rather than trying to update a prior one from a different
+   conversation, unless the user names an existing artifact URL to
+   redeploy.
 
    **Why cell length matters here, specifically:** some terminal markdown
    renderers silently fall back to a stacked "**Trigger:** x /
