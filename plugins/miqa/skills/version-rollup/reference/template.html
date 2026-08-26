@@ -400,7 +400,14 @@
             <td class="component">{{TRIGGER_OR_CHAIN_LABEL}}</td>
             <td class="note"><a class="tcr" href="{{WEB_HOST}}/test_chain_run/{{TCR_ID}}">TCR {{TCR_ID}}</a></td>
             <td class="checks">{{PASS_N}}/{{TOTAL_N}} pass{{ &middot; <span class="fail-n">N fail</span> if any}}{{ &middot; <span class="warn-n">N warn</span> if any}}</td>
-            <td><span class="chip {{healthy|warn|failing}}">{{Healthy|Warn|Failing}}</span></td>
+            <td><span class="chip {{healthy|failing}}">{{Healthy|Failing}}</span></td>
+            <!-- Status is binary, taken from this run's own outcome field
+            (pass/fail) — NOT synthesized from the checks tally. A run with
+            outcome "pass" stays Healthy even if its checks include WARNs;
+            the WARN count already shows in the Checks cell and, per SKILL.md
+            step 6/the "Warnings on record" section below, is never dropped.
+            chip.warn is unused here on purpose — kept in the shared CSS only
+            because the sibling active-triggers template still uses it. -->
           </tr>
           <!-- END REPEAT -->
         </tbody>
