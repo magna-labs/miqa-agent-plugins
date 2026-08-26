@@ -1,0 +1,459 @@
+<!--
+  Canonical template for this skill's "version rollup" artifact — the
+  on-demand deliverable for "show me all results for version/docker tag X"
+  (see SKILL.md's procedure). Copy this file's content verbatim and only
+  replace the {{PLACEHOLDER}} tokens and the repeated blocks marked
+  <!-- REPEAT: ... --> / <!-- END REPEAT -->. Do not restyle, do not
+  re-derive the palette/type/layout from scratch — this deliberately
+  shares the same design tokens as the sibling `active-triggers` skill's
+  `reference/template.html` (the trigger-sweep artifact) so the two read
+  as one family of reports. If that sweep template's tokens ever change,
+  bring the change here too rather than letting the two drift apart.
+
+  Source of truth: published artifacts
+  https://claude.ai/code/artifact/edc370f4-d4eb-436e-bf43-dae681c75126
+  (clean build, no failures) and
+  https://claude.ai/code/artifact/7c707dab-a212-4bb2-b276-9b4d5723a3d6
+  (build with one failing chain) — both approved by the user as the
+  pattern to codify.
+
+  Optional elements, include only when the data calls for them:
+    - The third stat tile is context-dependent: if every chain passed
+      clean, use it for "N warnings" info (like the checks-executed
+      count folded into the label); if any chain is failing, use it for
+      the failing-chain count in --critical and move the checks-executed
+      figure into the tile-2 label instead. Don't show a 0 as a critical
+      number — only give the tile critical styling when the count is >0.
+    - One <section class="case"> per FAILING test chain in this version
+      (tr.is-failing in the table too). Skip entirely if nothing failed.
+      If the failure is already documented elsewhere (e.g. a trigger
+      sweep's root-cause report), don't re-derive the full mechanism —
+      summarize the check-level tally and name what's already known,
+      pointing back to the established signature/boundary TCR rather
+      than re-running the whole investigation, unless the user asks for
+      fresh root-cause digging on this specific run.
+    - The "Warnings on record" section — include whenever any run in the
+      rollup carries a WARN-status check, even if nothing outright
+      failed. Never drop a WARN silently (same rule as the trigger-sweep
+      template). Omit the section only when there are zero WARNs anywhere
+      in the rollup.
+  One <tr> per test chain run returned for this version; one <section
+  class="case"> per failing chain (not per WARN — WARNs are footnoted in
+  the "Warnings on record" section instead, never given their own case).
+-->
+<title>{{VERSION_TAG}} Rollup</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --paper: #F5F4EF;
+    --surface: #FFFFFF;
+    --ink: #171F1C;
+    --muted: #5B655F;
+    --line: #DAD8D0;
+    --accent: #2B6E63;
+    --accent-soft: #E4EEEC;
+    --success: #3C8F5C;
+    --success-soft: #E3F1E7;
+    --warning: #B8842B;
+    --warning-soft: #F5EBD8;
+    --critical: #C1473A;
+    --critical-soft: #F8E4E1;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #101613;
+      --surface: #172420;
+      --ink: #E9EDE9;
+      --muted: #93A19B;
+      --line: #263430;
+      --accent: #6FC2B0;
+      --accent-soft: #1D3A34;
+      --success: #5FBE84;
+      --success-soft: #1B3324;
+      --warning: #E0A94D;
+      --warning-soft: #3A2E17;
+      --critical: #E37567;
+      --critical-soft: #3B2320;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper: #101613;
+    --surface: #172420;
+    --ink: #E9EDE9;
+    --muted: #93A19B;
+    --line: #263430;
+    --accent: #6FC2B0;
+    --accent-soft: #1D3A34;
+    --success: #5FBE84;
+    --success-soft: #1B3324;
+    --warning: #E0A94D;
+    --warning-soft: #3A2E17;
+    --critical: #E37567;
+    --critical-soft: #3B2320;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Source Serif 4", Georgia, serif;
+    font-size: 16px;
+    line-height: 1.55;
+    padding: 3rem 1.5rem 5rem;
+    display: flex;
+    justify-content: center;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .tile, .row { transition: background-color 0.15s ease; }
+  }
+
+  main {
+    width: 100%;
+    max-width: 900px;
+  }
+
+  .mono {
+    font-family: "IBM Plex Mono", ui-monospace, "SF Mono", Consolas, monospace;
+  }
+
+  a { color: var(--accent); text-decoration-color: color-mix(in srgb, var(--accent) 40%, transparent); text-underline-offset: 2px; }
+  a:hover { text-decoration-color: var(--accent); }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* Masthead */
+  .masthead {
+    border-bottom: 3px solid var(--ink);
+    padding-bottom: 1.75rem;
+    margin-bottom: 2rem;
+  }
+
+  .eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 0.6rem;
+  }
+
+  h1 {
+    font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    font-weight: 700;
+    font-size: clamp(1.9rem, 4.2vw, 2.6rem);
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    margin: 0 0 0.9rem;
+    text-wrap: balance;
+  }
+
+  h1 .tag {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 500;
+    font-size: 0.62em;
+    letter-spacing: -0.01em;
+    color: var(--muted);
+    display: block;
+    margin-top: 0.3rem;
+  }
+
+  .meta-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.6rem;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.82rem;
+    color: var(--muted);
+  }
+
+  .meta-strip strong {
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  /* Stat tiles */
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    margin-bottom: 2.5rem;
+  }
+
+  .tile {
+    background: var(--surface);
+    padding: 1.2rem 1.3rem;
+  }
+
+  .tile .n {
+    font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    font-weight: 700;
+    font-size: 2.2rem;
+    line-height: 1;
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tile .n.success { color: var(--success); }
+  .tile .n.warning { color: var(--warning); }
+  .tile .n.critical { color: var(--critical); }
+
+  .tile .label {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-top: 0.35rem;
+  }
+
+  /* Section headers */
+  section { margin-bottom: 2.75rem; }
+
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 0.5rem;
+    margin-bottom: 1.1rem;
+  }
+
+  h2 {
+    font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    font-weight: 700;
+    font-size: 1.5rem;
+    letter-spacing: 0.01em;
+    margin: 0;
+  }
+
+  .section-note {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.76rem;
+    color: var(--muted);
+  }
+
+  /* Table */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.92rem; min-width: 640px; }
+
+  thead th {
+    text-align: left;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+    padding: 0.7rem 1rem;
+    background: var(--accent-soft);
+    border-bottom: 1px solid var(--line);
+  }
+
+  td {
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+
+  tbody tr.is-failing { background: color-mix(in srgb, var(--critical) 4%, transparent); }
+  tbody tr.is-failing:hover { background: color-mix(in srgb, var(--critical) 8%, transparent); }
+
+  .trig-name { font-weight: 600; }
+  .component { color: var(--muted); font-size: 0.82rem; }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.03em;
+    padding: 0.22em 0.6em;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+
+  .chip::before {
+    content: "";
+    width: 0.5em;
+    height: 0.5em;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  .chip.healthy { background: var(--success-soft); color: var(--success); }
+  .chip.failing { background: var(--critical-soft); color: var(--critical); }
+  .chip.warn { background: var(--warning-soft); color: var(--warning); }
+
+  .tag { font-family: "IBM Plex Mono", monospace; font-size: 0.85rem; }
+
+  .note { color: var(--muted); font-size: 0.88rem; }
+  .note a.tcr { font-family: "IBM Plex Mono", monospace; font-size: 0.82rem; }
+
+  .checks { font-variant-numeric: tabular-nums; font-family: "IBM Plex Mono", monospace; font-size: 0.85rem; }
+  .checks .warn-n { color: var(--warning); }
+  .checks .fail-n { color: var(--critical); font-weight: 600; }
+
+  /* Case file (failing chain only — see header note) */
+  .case {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--critical);
+    padding: 1.6rem 1.8rem;
+  }
+
+  .case h3 {
+    font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin: 0 0 0.9rem;
+  }
+
+  .case p { margin: 0 0 0.9rem; }
+  .case p:last-child { margin-bottom: 0; }
+
+  .proof {
+    background: var(--accent-soft);
+    border: 1px solid var(--line);
+    padding: 1.1rem 1.3rem;
+    margin: 1rem 0 1.3rem;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.86rem;
+    overflow-x: auto;
+  }
+
+  .proof .line { display: flex; justify-content: space-between; gap: 1rem; padding: 0.15rem 0; }
+  .proof .line.total { border-top: 1px solid var(--line); margin-top: 0.4rem; padding-top: 0.55rem; font-weight: 600; color: var(--critical); }
+  .proof .val { font-variant-numeric: tabular-nums; }
+
+  footer {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.74rem;
+    color: var(--muted);
+    border-top: 1px solid var(--line);
+    padding-top: 1.2rem;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  @media (max-width: 640px) {
+    .tiles { grid-template-columns: 1fr; }
+    footer { flex-direction: column; }
+  }
+</style>
+
+<main>
+
+  <div class="masthead">
+    <p class="eyebrow">Miqa &middot; Version Rollup</p>
+    <h1>Release Train<span class="tag">{{VERSION_TAG}}</span></h1>
+    <div class="meta-strip">
+      <span><strong>Built</strong> {{BUILD_DATE}}</span>
+      <span><strong>Components</strong> {{HEALTHY_COUNT}} of {{CHAIN_COUNT}} passing</span>
+      <span><strong>Host</strong> {{WEB_HOST}}</span>
+    </div>
+  </div>
+
+  <div class="tiles">
+    <div class="tile">
+      <div class="n">{{CHAIN_COUNT}}</div>
+      <div class="label">Test chains</div>
+    </div>
+    <!-- If nothing failed: tile 2 = checks executed (success color), tile 3 = warnings (or omit tile 3's number entirely if 0 warnings — still show the tile with a plain, non-colored 0). -->
+    <!-- If something failed: tile 2 = failing-chain count (critical color), tile 3 = warnings, with checks-executed folded into tile 3's label. -->
+    <div class="tile">
+      <div class="n {{success|critical}}">{{CHECKS_EXECUTED_OR_FAILING_COUNT}}</div>
+      <div class="label">{{Checks executed|Failing chain(s)}}</div>
+    </div>
+    <div class="tile">
+      <div class="n warning">{{WARN_COUNT}}</div>
+      <div class="label">Warnings{{ · N checks run, if tile 2 was repurposed for failures}}</div>
+    </div>
+  </div>
+
+  <section>
+    <div class="section-head">
+      <h2>Results</h2>
+      <span class="section-note">one docker tag, {{CHAIN_COUNT}} components, same day</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Test Chain</th><th>Component</th><th>Run</th><th>Checks</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          <!-- REPEAT: one <tr> per test chain run returned for this version -->
+          <tr {{class="is-failing" if this row failed}}>
+            <td class="trig-name"><a href="{{WEB_HOST}}/test_chain/{{TESTCHAIN_ID}}">{{TESTCHAIN_NAME}}</a><div class="component">{{COMPONENT_IMAGE_NAME}}</div></td>
+            <td class="component">{{TRIGGER_OR_CHAIN_LABEL}}</td>
+            <td class="note"><a class="tcr" href="{{WEB_HOST}}/test_chain_run/{{TCR_ID}}">TCR {{TCR_ID}}</a></td>
+            <td class="checks">{{PASS_N}}/{{TOTAL_N}} pass{{ &middot; <span class="fail-n">N fail</span> if any}}{{ &middot; <span class="warn-n">N warn</span> if any}}</td>
+            <td><span class="chip {{healthy|warn|failing}}">{{Healthy|Warn|Failing}}</span></td>
+          </tr>
+          <!-- END REPEAT -->
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- REPEAT: one <section> per FAILING test chain in this version. Omit entirely if nothing failed. -->
+  <section>
+    <div class="section-head">
+      <h2>Failing &mdash; {{TESTCHAIN_NAME}}</h2>
+      <span class="section-note">{{e.g. "same regression as the active-triggers sweep" if already documented, or "new failure" if not}}</span>
+    </div>
+    <div class="case">
+      <h3>{{Short, specific headline naming the mechanism — not "Test failing"}}</h3>
+      <p>{{If this failure is already root-caused elsewhere (a trigger sweep, an
+      earlier version rollup): name the specific failing checks by name,
+      state plainly that it's the same signature already tracked, and cite
+      the boundary TCR/build where it started. Don't re-run the full
+      diff-detail investigation unless the user asks for fresh digging on
+      this specific run. If this is a NEW failure not seen before, do the
+      real root-cause work (see SKILL.md step 4) before writing this
+      paragraph.}}</p>
+
+      <!-- Optional: only when there's a numeric reconciliation worth showing as a receipt -->
+      <div class="proof">
+        <div class="line"><span>Checks passing</span><span class="val">{{PASS_N}} / {{TOTAL_N}}</span></div>
+        <div class="line"><span>Checks warning</span><span class="val">{{WARN_N}}</span></div>
+        <div class="line total"><span>= Checks failing</span><span class="val">{{FAIL_N}}</span></div>
+      </div>
+
+      <p>{{Follow-up: still open as of this build, or resolved/changed — and
+      whether it's confirmed intentional or still an open question.}}</p>
+    </div>
+  </section>
+  <!-- END REPEAT -->
+
+  <!-- Include whenever ANY run in the rollup carries a WARN-status check. Omit only if zero WARNs anywhere. -->
+  <section>
+    <div class="section-head">
+      <h2>Warnings on record</h2>
+      <span class="section-note">not blocking &mdash; carried at warn severity</span>
+    </div>
+    <p class="note">{{One paragraph naming each test chain that has WARNs, which
+    specific checks, and whether the pattern is new to this build or
+    unchanged from a prior build/rollup. Never drop a WARN silently — if a
+    check's diff detail wasn't retrievable via the API, say so plainly
+    here instead of omitting it.}}</p>
+  </section>
+
+  <footer>
+    <span>{{WEB_HOST}}</span>
+    <span>Pulled {{PULL_DATE}}</span>
+  </footer>
+
+</main>
