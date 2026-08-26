@@ -2,7 +2,7 @@
 name: active-triggers
 description: Use when the user asks "what's going on with my [most] active test triggers", "miqa trigger status", "why are my miqa triggers failing", or otherwise wants a status + root-cause sweep across Miqa test triggers (via a connected Miqa MCP server). Produces a fast pass/fail table first, then root-causes what's currently broken and offers to dig into anything that already recovered.
 metadata:
-  version: 1.7.0
+  version: 1.9.0
 ---
 
 # Miqa Active Trigger Triage
@@ -140,8 +140,54 @@ the sweep, rather than guessing from the server name.
    actionable problem, not optional follow-up, so proceed straight into this
    step for those. (Recovered 🟢 triggers only enter this step if the user
    asks for the dig-in offered in step 3 — see the scoping note there.)
-   For each trigger being root-caused, fan out one root-cause agent per
-   trigger (in parallel) with instructions to:
+   **Choose narration mode based on how many triggers need root-causing.**
+   A backgrounded Agent call has no built-in way to stream interim
+   progress — it only notifies once, at the very end. For a single
+   trigger that reads as one long silent wait, even though the
+   investigation itself has readable milestones (which check failed, what
+   the diff showed, which boundary run is being checked next, the
+   concluded bucket). Default to:
+   - **Exactly 1 trigger:** investigate directly in the main thread
+     yourself — call the tools inline rather than delegating to a
+     backgrounded Agent, and narrate as you go: a short line after each
+     milestone (e.g. "latest run fails on `<check>`, pulling the diff
+     detail now", "diff is `<magnitude>` — checking whether that started
+     here or earlier", "confirmed: baseline pointer didn't move, this is a
+     real regression"). This is "thinking out loud" narration, not a
+     status ping — each line should carry the actual finding so far, not
+     just "still working." Finish with the same step 6 table either way.
+   - **2 or more triggers:** fan out, but split each trigger's
+     investigation into two checkpoint agent calls instead of one long
+     silent one, so there's a narrated update partway through rather than
+     a multi-minute void:
+     - **Checkpoint 1 — diagnose:** one agent per trigger, in parallel,
+       does the first two bullets below (find the failing check(s) on the
+       latest run, pull diff detail) and returns just that preliminary
+       finding — which check(s) failed, the diff magnitude, and whether
+       it's a real value or only an aggregate match percentage. As each
+       checkpoint-1 agent completes, post a one-line narration per
+       trigger (e.g. "bravo-release: `Compare concordant bases` off by
+       1.26% (~11.6B bases) — checking when this started").
+     - **Checkpoint 2 — bucket:** once checkpoint 1 returns for a
+       trigger, launch a second agent for that same trigger, seeded with
+       checkpoint 1's finding, to do the remaining bullets below (pass→fail
+       boundary, environment comparison, WARN check) and conclude the
+       bucket. Feed its result into that trigger's row in step 6's table
+       as it lands, using the same live-table/ping progress modes as
+       before.
+     - This costs one extra agent spin-up per trigger, traded for a
+       narrated checkpoint instead of total silence. If the user has
+       explicitly opted into multi-agent orchestration (e.g. asked for a
+       workflow, or ultracode is on), prefer the `Workflow` tool's
+       `log()` narrator lines and live progress tree instead of this
+       manual two-checkpoint split — it's built for exactly this and
+       gives finer-grained progress than two checkpoints. Don't reach for
+       `Workflow` on your own initiative outside that opt-in.
+
+   For each trigger being root-caused (whether investigated inline, via a
+   checkpointed pair of agents, or in a single fanned-out agent), the steps
+   are — checkpoint 1 covers the first two bullets, checkpoint 2 the rest,
+   when split:
    - Pull `list_test_chain_runs_for_trigger(trigger_id, limit=30)` and find the exact pass→fail
      boundary (or confirm it's been failing the whole window).
    - On the latest failing run, call `get_test_chain_run_report` for per-check
