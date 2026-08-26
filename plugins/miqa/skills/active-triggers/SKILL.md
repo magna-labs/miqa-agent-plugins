@@ -2,7 +2,7 @@
 name: active-triggers
 description: Use when the user asks "what's going on with my [most] active test triggers", "miqa trigger status", "why are my miqa triggers failing", or otherwise wants a status + root-cause sweep across Miqa test triggers (via a connected Miqa MCP server). Produces a fast pass/fail table first, then root-causes what's currently broken and offers to dig into anything that already recovered.
 metadata:
-  version: 1.9.0
+  version: 1.10.0
 ---
 
 # Miqa Active Trigger Triage
@@ -238,6 +238,34 @@ the sweep, rather than guessing from the server name.
      dates — report both explicitly (e.g. "content mismatch since TCR
      X; a separate execution crash started additionally on TCR Y"), don't
      collapse them into one story dated to the older boundary.
+   - **Don't assume failures on different checks or different test blocks
+     within the same trigger are separate root causes — check whether they
+     reconcile to one cause first.** Two (or more) checks failing at the
+     same pass→fail boundary run is a signal they may be the *same*
+     underlying change surfacing twice, not automatically two bucket
+     labels. Before filing a combined 🔴+🟡 (or any two-bucket) verdict,
+     pull the actual per-record diff detail for *each* failing check (not
+     just the headline metric) and check whether they reconcile — e.g. a
+     new metric appearing in one test block's diff table, and a matching
+     drop in another block's numbers, that sum to the same value. Only
+     split into two distinct root causes once the evidence (different
+     boundary runs, or diffs that don't reconcile) actually shows two
+     separate mechanisms. Defaulting to "different check name or test
+     block = different cause" without checking is how one regression gets
+     mis-reported as a regression plus an unrelated chronic issue.
+   - **Live data always overrides memory or a prior sweep's notes — treat
+     anything remembered about a trigger as a hypothesis to re-verify, not
+     a fact to repeat.** A stored note that a check has a "long-standing"
+     or "known" issue describes a state that can have changed since it was
+     written (rebaselined, regressed again, fixed, recurred with a
+     different cause). Before reusing any characterization from memory —
+     especially words like "long-standing," "chronic," "known issue," or
+     an old bucket label — pull the actual last-known-good run for *this*
+     sweep (`get_test_chain_run_results` on the boundary TCR) and confirm
+     the claim still holds against what's live right now. If what you find
+     live contradicts memory, live data wins, full stop — report what you
+     just verified, then correct the stored memory afterward so it doesn't
+     mislead the next sweep too.
    - **When checking that earliest failing run, an empty/null
      `execution_failure` (status/exit_code/log_stream_name all null,
      `log_tail: []`) does NOT mean nothing crashed.** AWS log retention
@@ -542,3 +570,8 @@ the sweep, rather than guessing from the server name.
 - If the trigger count is large (dozens+), the two-phase fan-out (scan for
   activity, then root-cause only the currently-failing/incomplete ones) keeps
   this fast and cheap instead of root-causing everything indiscriminately.
+- **Memory/prior-session notes are a lead, never a citable fact — live data
+  always wins.** See step 4's two bullets on this: re-verify the boundary
+  run live before repeating any "long-standing"/"known issue" framing from
+  memory, and reconcile diffs across failing checks/test blocks before
+  splitting one trigger into two bucket labels.
