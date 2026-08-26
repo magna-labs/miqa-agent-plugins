@@ -190,6 +190,15 @@ the sweep, rather than guessing from the server name.
    when split:
    - Pull `list_test_chain_runs_for_trigger(trigger_id, limit=30)` and find the exact pass→fail
      boundary (or confirm it's been failing the whole window).
+   - **Batch every independent lookup into one round trip instead of firing
+     them one at a time.** Once you have the run_ids you need (latest
+     failing, boundary, prior-pass), issue all of that trigger's
+     `get_test_chain_run_results` / `get_test_chain_run_environment` /
+     `get_test_chain_run_report` calls together as parallel tool calls in
+     the same turn rather than sequentially — none of them depend on each
+     other, only on IDs you already have. This cuts real wall-clock time
+     (measured ~1.5-3x depending on how many calls are batched); it doesn't
+     need its own explanation in the final report, just do it.
    - On the latest failing run, call `get_test_chain_run_report` for per-check
      diff detail — don't stop at pass/fail. Distinguish: genuine content
      mismatch vs. "missing matching file"/`missing_in_baseline: true`
@@ -313,20 +322,28 @@ the sweep, rather than guessing from the server name.
      failing on a multi-percent or multi-unit swing is real signal
      tripping a strict check, not proof the check is miscalibrated —
      that's bucket one or two. When the diff magnitude can't be determined
-     at all (only an aggregate match percentage is available, see below),
+     at all (no field/record-level breakdown is available, see below),
      default to reporting an unconfirmed regression instead — the safer
      bucket to be wrong toward.
-   - **A check whose diff detail is only an aggregate match percentage
-     (e.g. `"check_result": "14.286%"` with empty `diff_indexes`/`diffs`
-     in `diff_details_raw`) has no field-level breakdown available from
-     the API** — common for tabular file-compare checks. `inspect_execution_outputs`
-     can't fill this gap either: by design it returns only column
-     headers/types, never actual data values. Don't silently drop or
-     skip such a check because "there's nothing to show" — report the
-     aggregate diff you did see and say explicitly that the specific
-     differing field/metric isn't retrievable through the connected
-     tools, so a human would need to open the actual output file (e.g.
-     via the Miqa web UI) to identify it.
+   - **Whenever a check's diff detail doesn't expose field- or
+     record-level granularity, that's an API limitation, not a sign the
+     check is uninteresting — this isn't specific to any one check_type
+     or result shape.** `get_test_chain_run_report`'s own docs note the
+     detail field's shape varies by check_type (`diff_details_raw`,
+     `result`, a table's `table_items`, etc.) — inspect the specific
+     assertion rather than assuming one field name or one coarse-only
+     pattern (e.g. an aggregate match percentage with empty
+     `diff_indexes`/`diffs`) is the only way this shows up. Whatever form
+     it takes for that check_type, if what comes back is a summary/count/
+     percentage rather than the actual differing value(s), treat it the
+     same way. `inspect_execution_outputs` can't fill the gap either: by
+     design it returns only column headers/types, never actual data
+     values. Don't silently drop or skip such a check because "there's
+     nothing to show" — report the coarser diff you did see and say
+     explicitly that the specific differing field/metric isn't
+     retrievable through the connected tools, so a human would need to
+     open the actual output file (e.g. via the Miqa web UI) to identify
+     it.
    - **WARN-status checks are a different severity from FAIL, not a
      different category of "ignore."** When pulling `get_test_chain_run_results`
      for the run being root-caused, note any `check_status: "WARN"` entries
