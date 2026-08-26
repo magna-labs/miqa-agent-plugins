@@ -218,12 +218,30 @@ the sweep, rather than guessing from the server name.
        this label just because a past instance of the same trigger was
        once fixed by rebaselining, or because an unconfirmed regression
        *might* end in a rebaseline later — that's still bucket one.
-     - **check-config issue** — the run's content and the baseline are both
-       fine; the *check itself* is misconfigured (e.g. a percent-diff
-       assertion set to zero tolerance, so ordinary floating-point noise
-       trips FAIL every run regardless of version). Neither a regression
-       nor a stale baseline — it's a threshold/assertion fix owned by
-       whoever maintains the check definition, not the baseline owner.
+     - **strict-threshold noise** — the run's content and the baseline are
+       both fine; the check enforces a zero/near-zero tolerance (e.g.
+       `pct_diff_threshold: 0`), so it fails on any nonzero diff, including
+       ordinary floating-point/measurement noise. A strict tolerance is not
+       automatically a bug — it may be an intentional choice by the check
+       owner. Describe it as that ("strict by design, failing on
+       noise-level diffs") rather than calling it "misconfigured" or
+       something that "needs" fixing; noting that widening the threshold
+       is an option is fine, but leave the decision to the check owner.
+   - **Never assign a bucket from a check's configuration alone.** A
+     strict threshold visible in `get_test_chain_run_environment`'s
+     `assertions` block only tells you the check would fail on any nonzero
+     diff — not how big the actual diff is. Always pull the actual failing
+     value from `get_test_chain_run_report` (expected vs. actual, not just
+     the threshold field) and confirm the mismatch is genuinely
+     noise-sized — roughly the 5th+ significant digit, not a swing
+     measured in whole percent or in thousands/millions/billions of units
+     — before calling it strict-threshold noise. A zero-tolerance check
+     failing on a multi-percent or multi-unit swing is real signal
+     tripping a strict check, not proof the check is miscalibrated —
+     that's bucket one or two. When the diff magnitude can't be determined
+     at all (only an aggregate match percentage is available, see below),
+     default to reporting an unconfirmed regression instead — the safer
+     bucket to be wrong toward.
    - **A check whose diff detail is only an aggregate match percentage
      (e.g. `"check_result": "14.286%"` with empty `diff_indexes`/`diffs`
      in `diff_details_raw`) has no field-level breakdown available from
@@ -295,12 +313,13 @@ the sweep, rather than guessing from the server name.
    Use 🔴 for a real product regression, 🟡 for either "needs a baseline
    update" (stale/frozen baseline pointer, comparison version swapped to
    something incompatible, or baseline files deleted — the baseline itself
-   is the problem right now) or "check-config issue" (the check's own
-   assertion/threshold is misconfigured, e.g. a zero-tolerance percent-diff
-   catching float noise) — name which of the two it is explicitly in the
-   cell text rather than defaulting both to "needs baseline update"; they
-   have different owners (test-config/baseline owner vs. whoever maintains
-   the check definition). 🟢 for healthy/passing/still-running-normally
+   is the problem right now) or "strict-threshold noise" (the check enforces
+   a zero/near-zero tolerance and is failing on noise-level diffs — describe
+   it that way rather than calling the check "misconfigured"; the strict
+   tolerance may well be intentional) — name which of the two it is
+   explicitly in the cell text rather than defaulting both to "needs
+   baseline update"; they point to different owners (test-config/baseline
+   owner vs. whoever owns the check's threshold). 🟢 for healthy/passing/still-running-normally
    (including "Recovered" — currently passing, dug into on request after
    having failed earlier in the window). Don't downgrade an unconfirmed
    content regression to 🟡 just because a rebaseline is the likely
@@ -402,7 +421,7 @@ the sweep, rather than guessing from the server name.
      isn't one), and `.aside` for anything lower-priority than the case's
      main FAIL narrative: a second, unrelated FAIL-level issue on the same
      trigger (state explicitly which of step 4's three buckets — regression
-     / needs-baseline-update / check-config — it belongs to, don't fold it
+     / needs-baseline-update / strict-threshold-noise — it belongs to, don't fold it
      into the main narrative's diagnosis), and separately, any WARN-status
      finding uncovered while root-causing (see step 6's "WARN is not a
      second root cause" rule) — always flagged, never given the main case's
@@ -412,8 +431,8 @@ the sweep, rather than guessing from the server name.
      no dash-appended explainer (e.g. "August 25 Trigger Sweep", not
      "Trigger Health — Aug 25"); favicon is always 🧬.
    - **Design history**: an earlier version of this template used a
-     different card/chip treatment and (wrongly) filed a check-config issue
-     under a "needs baseline update" chip. The user explicitly preferred
+     different card/chip treatment and (wrongly) filed a strict-threshold-noise
+     issue under a "needs baseline update" chip. The user explicitly preferred
      the version now captured in `reference/template.html` (published at
      https://claude.ai/code/artifact/6b4c2484-ada8-4dee-8654-13bc8a993d24)
      over that earlier one — this is the locked version going forward. If
