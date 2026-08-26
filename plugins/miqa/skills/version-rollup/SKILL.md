@@ -40,7 +40,7 @@ version.
    terminal).
 
 2. **Find every run for the version.** If the user gives a bare docker tag
-   (no image path, e.g. `1.2.0-260816-b8833cb`), call `list_test_chain_runs`
+   (no image path, e.g. `2.4.0-240102-a1b2c3d`), call `list_test_chain_runs`
    with `version_field="docker_tag"`, `version_value="<tag>"`, and a
    generous `limit` (200-300 — the default 100-run scan window can miss
    older matches; if the result comes back empty, widen further before
@@ -49,7 +49,7 @@ version.
    what "all results" means here. Only reach for
    `find_test_chain_runs_by_version` instead if the user already gives you
    a full component-qualified display label (e.g.
-   `xoos/read_collapser:1.2.0-260809-61a1492`) — it only searches one
+   `acme/pipeline-a:2.4.0-240102-a1b2c3d`) — it only searches one
    component at a time, so it's the wrong tool when you don't yet know
    which components used that tag.
 
@@ -58,9 +58,9 @@ version.
    are independent lookups, batch them in one turn rather than firing them
    one at a time. Count PASS/WARN/FAIL from each result's **`check_status`,
    never `assertion_status`** — the two can disagree on the same row
-   (observed directly: a demux SBX-D run showed `assertion_status: "FAIL"`
-   on a check whose `check_status` was `"PASS"`), and `check_status` is
-   what actually determines the run's outcome.
+   (observed directly: one run showed `assertion_status: "FAIL"` on a
+   check whose `check_status` was `"PASS"`), and `check_status` is what
+   actually determines the run's outcome.
 
 4. **Post a terminal table immediately** — don't dig into any failure
    before shipping this. Columns: Test Chain | Component | TCR | Checks |
@@ -122,7 +122,7 @@ version.
      host (plain text only if no web host could be derived, never a
      fabricated link).
    - Title names the version tag as a plain noun phrase (e.g.
-     "1.2.0-260816-b8833cb Rollup"); favicon is always 🧬, matching
+     "2.4.0-240102-a1b2c3d Rollup"); favicon is always 🧬, matching
      `active-triggers`'s artifacts so both read as one family in a
      gallery of published reports.
    - Design history: this template was derived directly from two
