@@ -2,7 +2,7 @@
 name: version-rollup
 description: Use when the user asks to "show all results for version/docker tag X", "get me everything that ran on build X", or otherwise wants a rollup of every Miqa test chain run for one specific version/docker tag (via a connected Miqa MCP server) — across every component and test chain, not scoped to a single trigger. Produces a per-check tally table, then flags anything failing or warning.
 metadata:
-  version: 1.0.0
+  version: 1.1.0
 ---
 
 # Miqa Version Rollup
@@ -32,65 +32,115 @@ version.
    `echo $MIQA_SERVER_URL`). If it matches `api.<env>.miqa.io` (starts with
    `api.`, ends with `.miqa.io`), the web host is `<env>.miqa.io` — strip
    the leading `api.`. If it doesn't match that shape, don't guess a web
-   host at all. This host is only used for artifact links (step 5) and
+   host at all. This host is only used for artifact links (step 8) and
    on-demand links given in the terminal reply — never as inline markdown
    links inside the terminal table itself (same rendering-bug rationale as
    the `active-triggers` skill: wide tables with inline `[text](url)`
    markup can silently collapse into a stacked block layout in this user's
    terminal).
 
-2. **Find every run for the version.** If the user gives a bare docker tag
-   (no image path, e.g. `2.4.0-240102-a1b2c3d`), call `list_test_chain_runs`
-   with `version_field="docker_tag"`, `version_value="<tag>"`, and a
-   generous `limit` (200-300 — the default 100-run scan window can miss
-   older matches; if the result comes back empty, widen further before
-   concluding the version doesn't exist rather than assuming it's absent).
-   This matches across every component/test chain in one call, which is
-   what "all results" means here. Only reach for
-   `find_test_chain_runs_by_version` instead if the user already gives you
-   a full component-qualified display label (e.g.
+2. **Resolve a fuzzy or relative version reference before searching, if the
+   user didn't name an exact docker tag.** Phrasing like "the latest
+   build", "the latest release build" (excluding drafts/snapshots/RCs), or
+   "whatever's newest for demux" has no `version_value` to filter on yet.
+   Call `list_test_chain_runs` with no version filter (newest-first,
+   `limit` 30-50 is normally enough) and scan the returned `version_name`
+   values for the newest one matching the criteria. There is no fixed,
+   cross-deployment naming convention for what marks a draft/snapshot vs. a
+   release build — infer it from the tag patterns actually present in this
+   scan (e.g. a repeated marker like `-DRAFT-`, `-rc`, `-snapshot`, or a
+   distinct registry path segment shared by the entries you're excluding),
+   and if the scan doesn't make the pattern obvious, ask the user what
+   distinguishes a release tag in their setup rather than guessing one.
+   Extract the docker tag from the newest matching `version_name`
+   (everything after the final `:`), state plainly in the reply which tag
+   you resolved to and from which run/date, then proceed to step 3 with
+   that tag. Don't guess silently — if nothing matches the criteria in the
+   scan window, widen the limit before concluding there's no such build.
+
+3. **Find every run for the version.** If the user gives a bare docker tag
+   (no image path, e.g. `2.4.0-240102-a1b2c3d`) — or you resolved one in
+   step 2 — call `list_test_chain_runs` with `version_field="docker_tag"`,
+   `version_value="<tag>"`, and a generous `limit` (200-300 — the default
+   100-run scan window can miss older matches; if the result comes back
+   empty, widen further before concluding the version doesn't exist rather
+   than assuming it's absent). This matches across every component/test
+   chain in one call, which is what "all results" means here. Only reach
+   for `find_test_chain_runs_by_version` instead if the user already gives
+   you a full component-qualified display label (e.g.
    `acme/pipeline-a:2.4.0-240102-a1b2c3d`) — it only searches one
    component at a time, so it's the wrong tool when you don't yet know
    which components used that tag.
 
-3. **Pull the per-check tally for each returned run.** Call
-   `get_test_chain_run_results(run_id)` for every run in parallel — these
-   are independent lookups, batch them in one turn rather than firing them
-   one at a time. Count PASS/WARN/FAIL from each result's **`check_status`,
-   never `assertion_status`** — the two can disagree on the same row
-   (observed directly: one run showed `assertion_status: "FAIL"` on a
-   check whose `check_status` was `"PASS"`), and `check_status` is what
-   actually determines the run's outcome.
+4. **Pull the per-check tally for each returned run that's actually done.**
+   Check each run's `status` field from step 3 first — if it isn't
+   `"done"` (e.g. `"Started"`), the run is still executing: don't call
+   `get_test_chain_run_results` for it (the report may still be generating
+   or the data may be incomplete), and don't guess pass/fail for it. For
+   every run that is `"done"`, call `get_test_chain_run_results(run_id)`
+   for all of them in parallel — these are independent lookups, batch them
+   in one turn rather than firing them one at a time. Count PASS/WARN/FAIL
+   from each result's **`check_status`, never `assertion_status`** — the
+   two can disagree on the same row (observed directly: one run showed
+   `assertion_status: "FAIL"` on a check whose `check_status` was
+   `"PASS"`), so `check_status` is what drives the Checks-column tally.
+   This tally is display detail only — it does not drive the row's Status
+   (see step 5).
 
-4. **Post a terminal table immediately** — don't dig into any failure
+5. **Post a terminal table immediately** — don't dig into any failure
    before shipping this. Columns: Test Chain | Component | TCR | Checks |
-   Status, one row per run, all plain text (no inline links, per step 1's
-   note). "Checks" is a compact tally like `37/44 pass · 5 fail · 2 warn`;
-   "Status" is Healthy / Warn / Failing — WARN present but nothing failing
-   is Warn, not Healthy; anything with a FAIL is Failing.
+   Status, one row per run, no inline links (per step 1's note). Since
+   this terminal renders plain CommonMark (no cell background/text color),
+   color both columns the same way the sibling `active-triggers` skill's
+   terminal tables do: with a leading status emoji, never plain text alone.
+   Status has three possible states, not two: 🔵 Running (still executing),
+   🟢 Healthy, or 🔴 Failing (the latter two only apply once a run is
+   `"done"`). For a still-running run (per step 4), skip the tally and show
+   `— running` (or similar) in Checks and 🔵 Running in Status — before
+   calling it stalled, sanity-check its elapsed time against how long this
+   same test chain's other recent `"done"` runs took (same approach as
+   `active-triggers` step 6); only call out a stall if it clearly exceeds
+   that normal range, otherwise it's just "still running," not broken. For
+   a `"done"` run, "Checks" is a compact tally with the fail/warn segments
+   each prefixed by their emoji, e.g. `37/44 pass · 🔴 5 fail · 🟡 2 warn`
+   (omit a segment entirely if its count is 0, don't show "🔴 0 fail").
+   "Status" is 🟢 Healthy / 🔴 Failing, taken directly from that run's own
+   `outcome` field (`list_test_chain_runs`/`find_test_chain_runs_by_version`
+   already returned this in step 3 — pass → 🟢 Healthy, fail → 🔴 Failing).
+   Don't synthesize Status from the WARN/FAIL tally: a run with
+   `outcome: "pass"` stays 🟢 Healthy even if its checks include WARNs —
+   the WARN count already surfaces in the Checks column (step 7 still
+   applies, so it's never dropped), it just doesn't demote the row.
 
-5. **Don't re-root-cause a failure that's already documented.** If a run in
-   the rollup is failing and it's the same signature already root-caused
-   elsewhere (a prior `active-triggers` sweep, or an earlier rollup), name
-   that plainly and cite the boundary TCR/build where it started — don't
-   re-derive the full mechanism from scratch. Only do fresh root-cause
-   digging if the user asks, or if the failure signature looks new (check
-   this by comparing the failing check names and magnitudes against what
-   was previously reported, not just by assuming "failing = same issue").
-   For fresh digging, the investigation steps are the same ones the
-   `active-triggers` skill uses for a single trigger (pull
+6. **Don't re-root-cause a failure that's already documented — but offer to.**
+   If a run in the rollup is failing and it's the same signature already
+   root-caused elsewhere (a prior `active-triggers` sweep, or an earlier
+   rollup), name that plainly and cite the boundary TCR/build where it
+   started — don't re-derive the full mechanism from scratch by default.
+   After that summary, offer once to dig in fresh anyway (same offer
+   pattern as the artifact offer in step 8: state it once, don't re-offer
+   if they don't take it, don't start digging without a yes) — a
+   previously-documented signature can still be worth re-checking (a fix
+   landed and needs confirming, the "same signature" call itself might be
+   wrong, etc.), so don't treat "already known" as a reason to foreclose
+   the option. Do fresh root-cause digging immediately, without waiting for
+   that offer to be taken, if the failure signature looks new instead
+   (check this by comparing the failing check names and magnitudes against
+   what was previously reported, not just by assuming "failing = same
+   issue"). For fresh digging, the investigation steps are the same ones
+   the `active-triggers` skill uses for a single trigger (pull
    `get_test_chain_run_environment` for the run and its likely boundary,
    distinguish content mismatch vs. baseline problem vs. execution crash,
    conclude into one of: real regression / needs-baseline-update /
    strict-threshold noise) — that skill's step 4 has the full detail if
    you need to reuse it.
 
-6. **Never drop a WARN silently.** Always mention any WARN-status check
+7. **Never drop a WARN silently.** Always mention any WARN-status check
    found, even when the run's overall outcome is a pass — as a
    lower-priority note attached to that run's row/summary, not given equal
    billing with a FAIL.
 
-7. **Artifact, on request only.** Don't publish unless the user asks —
+8. **Artifact, on request only.** Don't publish unless the user asks —
    but after the terminal table, mention that a shareable, linked version
    is available (same offer pattern as `active-triggers`: state it once,
    don't re-offer if the user doesn't take it, don't publish without a
