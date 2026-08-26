@@ -294,6 +294,7 @@
   .chip.healthy { background: var(--success-soft); color: var(--success); }
   .chip.failing { background: var(--critical-soft); color: var(--critical); }
   .chip.warn { background: var(--warning-soft); color: var(--warning); }
+  .chip.running { background: var(--accent-soft); color: var(--accent); }
 
   .tag { font-family: "IBM Plex Mono", monospace; font-size: 0.85rem; }
 
@@ -395,19 +396,29 @@
         </thead>
         <tbody>
           <!-- REPEAT: one <tr> per test chain run returned for this version -->
-          <tr {{class="is-failing" if this row failed}}>
+          <!-- Status has three states, per SKILL.md step 5:
+            - status != "done" (still executing) → chip.running (accent/teal,
+              deliberately NOT chip.warn's amber — that color is reserved for
+              actual WARN-severity checks in the Checks cell, and reusing it
+              for "still running" reads as if something's already wrong),
+              labeled "Running". Checks cell shows "— running" instead of a
+              tally (don't guess pass/fail for a run that hasn't finished).
+              Sanity-check elapsed time against this chain's other recent done
+              runs before implying a stall; if it's within normal range this
+              is not an error state.
+            - status == "done", outcome "pass" → chip.healthy, "Healthy" —
+              taken directly from the run's own outcome field, NOT synthesized
+              from the checks tally. Stays Healthy even if checks include
+              WARNs; the WARN count still shows in the Checks cell and, per
+              SKILL.md step 7/the "Warnings on record" section below, is never
+              dropped.
+            - status == "done", outcome "fail" → chip.failing, "Failing". -->
+          <tr {{class="is-failing" if outcome is fail}}>
             <td class="trig-name"><a href="{{WEB_HOST}}/test_chain/{{TESTCHAIN_ID}}">{{TESTCHAIN_NAME}}</a><div class="component">{{COMPONENT_IMAGE_NAME}}</div></td>
             <td class="component">{{TRIGGER_OR_CHAIN_LABEL}}</td>
             <td class="note"><a class="tcr" href="{{WEB_HOST}}/test_chain_run/{{TCR_ID}}">TCR {{TCR_ID}}</a></td>
-            <td class="checks">{{PASS_N}}/{{TOTAL_N}} pass{{ &middot; <span class="fail-n">N fail</span> if any}}{{ &middot; <span class="warn-n">N warn</span> if any}}</td>
-            <td><span class="chip {{healthy|failing}}">{{Healthy|Failing}}</span></td>
-            <!-- Status is binary, taken from this run's own outcome field
-            (pass/fail) — NOT synthesized from the checks tally. A run with
-            outcome "pass" stays Healthy even if its checks include WARNs;
-            the WARN count already shows in the Checks cell and, per SKILL.md
-            step 6/the "Warnings on record" section below, is never dropped.
-            chip.warn is unused here on purpose — kept in the shared CSS only
-            because the sibling active-triggers template still uses it. -->
+            <td class="checks">{{PASS_N}}/{{TOTAL_N}} pass{{ &middot; <span class="fail-n">N fail</span> if any}}{{ &middot; <span class="warn-n">N warn</span> if any}}{{, or "&mdash; running" if status != "done"}}</td>
+            <td><span class="chip {{healthy|failing|running}}">{{Healthy|Failing|Running}}</span></td>
           </tr>
           <!-- END REPEAT -->
         </tbody>

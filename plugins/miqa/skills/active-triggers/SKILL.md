@@ -2,7 +2,7 @@
 name: active-triggers
 description: Use when the user asks "what's going on with my [most] active test triggers", "miqa trigger status", "why are my miqa triggers failing", or otherwise wants a status + root-cause sweep across Miqa test triggers (via a connected Miqa MCP server). Produces a fast pass/fail table first, then root-causes what's currently broken and offers to dig into anything that already recovered. For "show me all results for version/docker tag X" instead, see the sibling `version-rollup` skill.
 metadata:
-  version: 1.11.0
+  version: 1.12.0
 ---
 
 # Miqa Active Trigger Triage
@@ -85,10 +85,14 @@ the sweep, rather than guessing from the server name.
    | charlie-release | 🟢 Healthy | Passing on `1.2.0-260816-b8833cb` (TCR 60325) |
    | delta-release | 🔴 Failing | Failing on `1.2.0-DRAFT-260811-6e5c587` (TCR 60262), previously passing |
 
-   Use 🟢 if the latest run passed, 🔴 if it failed, 🟡 if it's
-   `incomplete`/`Started` (don't call this a stall yet — that's step 6). This
-   table is a standalone deliverable — send it and stop before moving on to
-   step 4, don't silently chain straight into root-causing.
+   Use 🟢 if the latest run passed, 🔴 if it failed, 🔵 if it's
+   `incomplete`/`Started` (don't call this a stall yet — that's step 5's
+   job; 🔵 is used here rather than 🟡 so "still running, not yet analyzed"
+   doesn't read as the same severity as the WARN-level 🟡 verdicts step 6's
+   root-cause table uses for "needs baseline update"/"strict-threshold
+   noise"/"confirmed stalled"). This table is a standalone deliverable —
+   send it and stop before moving on to step 4, don't silently chain
+   straight into root-causing.
 
    Trigger names and docker tags are always plain text in this table —
    never wrap them in markdown links (see step 1's note on why). The Note
@@ -136,9 +140,11 @@ the sweep, rather than guessing from the server name.
    a reason to hold off.
 
 4. **Root-cause every active trigger that's currently broken — automatically,
-   without asking.** A 🔴 or stalled 🟡 trigger from step 3 is a live,
-   actionable problem, not optional follow-up, so proceed straight into this
-   step for those. (Recovered 🟢 triggers only enter this step if the user
+   without asking.** A 🔴 trigger, or a 🔵 (incomplete/Started, not yet
+   analyzed) trigger, from step 3 needs this investigation, so proceed
+   straight into this step for those — step 3's 🔵 doesn't yet know whether
+   the run is stalled or just still executing normally; that's what step 5
+   determines. (Recovered 🟢 triggers only enter this step if the user
    asks for the dig-in offered in step 3 — see the scoping note there.)
    **Choose narration mode based on how many triggers need root-causing.**
    A backgrounded Agent call has no built-in way to stream interim
@@ -361,9 +367,12 @@ the sweep, rather than guessing from the server name.
    `get_test_chain_run_environment` for 1-2 prior *successful* runs of that same
    test chain and note their `execution_start`→`execution_end` duration. If
    elapsed real time since the incomplete run's start is still within that
-   normal runtime range, it's simply still executing — report it as healthy
-   and still-running, not broken. Only flag a real stall if elapsed time
-   clearly exceeds the normal runtime for that chain.
+   normal runtime range, it's simply still executing — report it in step 6's
+   table as 🟢 Healthy, still running, not broken. Only if elapsed time
+   clearly exceeds the normal runtime for that chain, conclude it's a real
+   stall — report that in step 6's table as 🟡 Stalled (see step 6's legend),
+   naming the elapsed time against the normal range as the evidence (e.g.
+   "no progress in 14h against a normal ~2h runtime for this chain").
 
 6. **Report progress while step 4 is running, then the final result, as an
    actual markdown table** — not a bulleted list of per-trigger paragraphs.
@@ -398,19 +407,24 @@ the sweep, rather than guessing from the server name.
    |---|---|---|
    | bravo-release | 🔴 Real regression | CLI flag renamed `--input-mode`→`--mode`, crashing since TCR 60301 (`1.2.0-DRAFT-260811-6e5c587`) |
    | charlie-release | 🟡 Needs baseline update | `@release_series` baseline frozen since TCR 59905, "no comparison version found" |
+   | echo-release | 🟡 Stalled | TCR 60401 no progress in 14h against a normal ~2h runtime for this chain |
    | delta-release | 🟢 Healthy, still running | TCR 60304 within normal ~10.5h runtime, not stalled |
    | alpha-release | 🟢 Recovered | `@release_series` baseline pointer broken (TCR 60238–60272); admin repointed baseline + force-rebaselined history on TCR 60278; current runs pass organically |
 
-   Use 🔴 for a real product regression, 🟡 for either "needs a baseline
-   update" (stale/frozen baseline pointer, comparison version swapped to
-   something incompatible, or baseline files deleted — the baseline itself
-   is the problem right now) or "strict-threshold noise" (the check enforces
-   a zero/near-zero tolerance and is failing on noise-level diffs — describe
-   it that way rather than calling the check "misconfigured"; the strict
-   tolerance may well be intentional) — name which of the two it is
-   explicitly in the cell text rather than defaulting both to "needs
-   baseline update"; they point to different owners (test-config/baseline
-   owner vs. whoever owns the check's threshold). 🟢 for healthy/passing/still-running-normally
+   Use 🔴 for a real product regression, 🟡 for any of three distinct
+   sub-cases — name which one explicitly in the cell text rather than
+   defaulting to a generic "needs baseline update", since they point to
+   different owners: "needs a baseline update" (stale/frozen baseline
+   pointer, comparison version swapped to something incompatible, or
+   baseline files deleted — the baseline itself is the problem right now;
+   owner is whoever owns test-config/baselines), "strict-threshold noise"
+   (the check enforces a zero/near-zero tolerance and is failing on
+   noise-level diffs — describe it that way rather than calling the check
+   "misconfigured"; the strict tolerance may well be intentional; owner is
+   whoever owns the check's threshold), or "Stalled" (step 5 found elapsed
+   time clearly exceeds this chain's normal runtime with no progress —
+   likely an infra/execution issue; owner is whoever runs the execution
+   environment). 🟢 for healthy/passing/still-running-normally
    (including "Recovered" — currently passing, dug into on request after
    having failed earlier in the window). Don't downgrade an unconfirmed
    content regression to 🟡 just because a rebaseline is the likely
@@ -581,7 +595,9 @@ the sweep, rather than guessing from the server name.
   should be fast — it's built entirely from data step 2 already pulled, no
   extra tool calls. Don't let step 4's investigation delay it.
 - Don't auto-deep-dive a trigger just because it failed at some point in the
-  last 14 days — only currently-broken (🔴/stalled 🟡) triggers get automatic
+  last 14 days — only currently-broken (🔴) or currently-incomplete (🔵,
+  which step 4/5 then resolves to 🟢 still-running-normally or 🟡 confirmed
+  stalled) triggers get automatic
   root-cause. A trigger that's green right now but failed earlier gets a
   one-line hint and an offer, not an automatic investigation.
 - If the trigger count is large (dozens+), the two-phase fan-out (scan for

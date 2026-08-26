@@ -93,8 +93,10 @@ version.
    this terminal renders plain CommonMark (no cell background/text color),
    color both columns the same way the sibling `active-triggers` skill's
    terminal tables do: with a leading status emoji, never plain text alone.
-   For a still-running run (per step 4), skip the tally and show
-   `— running` (or similar) in Checks and 🟡 Running in Status — before
+   Status has three possible states, not two: 🔵 Running (still executing),
+   🟢 Healthy, or 🔴 Failing (the latter two only apply once a run is
+   `"done"`). For a still-running run (per step 4), skip the tally and show
+   `— running` (or similar) in Checks and 🔵 Running in Status — before
    calling it stalled, sanity-check its elapsed time against how long this
    same test chain's other recent `"done"` runs took (same approach as
    `active-triggers` step 6); only call out a stall if it clearly exceeds
