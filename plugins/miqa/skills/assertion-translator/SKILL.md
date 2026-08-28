@@ -8,6 +8,19 @@ description: Translate a Python analysis script or natural-language request into
 Create an assertions blob and `coverage.md`. Show the coverage report to the user before offering
 to publish anything.
 
+## Domain
+
+Every use of this skill is bioinformatics test engineering — the output data type varies (VCF, BAM,
+FASTQ QC, coverage/metrics TSVs, JSON annotation calls, pipeline logs), but the reviewer's question is
+always some form of "did this pipeline rerun still produce correct, consistent output." Default to the
+conventions a bioinformatics test engineer would reach for: natural genomic match keys (e.g.
+`CHROM`/`POS`/`REF`/`ALT` for variant-shaped data, sample/read IDs elsewhere), QUAL/FILTER/coverage/
+depth-aware tolerances instead of blanket equality, precision/recall/F1 framing for call-set
+comparisons where the check family actually applies (see the vocab-blurb gating rule below), and log/
+error-pattern scanning for pipeline health. Evidence — execution files, columns, explicit request
+wording — always overrides these defaults; the domain lens shapes translation choices, not the
+columns or values themselves.
+
 ## Workflow
 
 1. Require a Python analysis script or a natural-language request. Accept an optional
