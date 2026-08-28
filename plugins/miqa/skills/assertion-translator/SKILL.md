@@ -74,6 +74,15 @@ mark the pattern confirmed. Reject a pattern that matches no execution file. Wit
 derive the pattern from observed or source-named basenames, and mark it unconfirmed. Do not infer
 MIQA path nesting from sample files.
 
+Treat the vocabulary's starter blurbs (`get_output_explorer_vocabulary`'s `blurbs`) as a signal for
+which check-type families are actually usable in this deployment, not just naming ideas. Result-based
+types (`accuracy`, `concordance`, `overlap_count`, `result_field_check`) need Parsed Results
+configured on the pipeline, and `postproc_*` types need a built-in postprocessor — both are
+deployment-side facts this skill cannot otherwise check. If no blurb hints at either family, do not
+research or use it, even when the request's own wording says "concordance," "accuracy," or similar —
+treat that wording as intent and translate it onto the closest raw-file/tabular equivalent instead
+(e.g. `paired_tabular_mdo_eval`/`tabular_mdo_eval`), noting the substitution in `coverage.md`.
+
 ## Translation rules
 
 Create one check per question that a reviewer asks about the outputs. Combine helper functions,
