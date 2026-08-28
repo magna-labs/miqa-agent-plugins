@@ -9,7 +9,7 @@
       "name": "miqa",
       "source": "./plugins/miqa",
       "description": "Miqa MCP server integration and agent skills",
-      "version": "0.5.5"
+      "version": "0.5.6"
     }
   ]
 }

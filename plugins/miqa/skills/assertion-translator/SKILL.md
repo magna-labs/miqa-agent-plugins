@@ -1,6 +1,6 @@
 ---
 name: assertion-translator
-description: Translate a Python analysis script or natural-language request into MIQA Output Explorer assertions and a coverage report. Use when a user asks for MIQA assertions, Output Explorer checks, or a translation of analysis code or stated requirements into MIQA tests.
+description: Translate a Python analysis script or natural-language request into MIQA Output Explorer assertions and a coverage report. Use when a user asks for MIQA assertions, Output Explorer checks, a translation of analysis code or stated requirements into MIQA tests, test/check suggestions for one or two executions, or help designing what checks a Test Block should contain (this skill drafts the assertions content only — see the Publish gate for what it never creates).
 ---
 
 # Assertion Translator
@@ -24,7 +24,17 @@ the request hasn't already decided, it never overrides what the user actually as
 ## Workflow
 
 1. Require a Python analysis script or a natural-language request. Accept an optional
-   column-mapping JSON, execution id, and sample input files.
+   column-mapping JSON, execution id, and sample input files. If the request names bare numeric
+   IDs without saying which MIQA entity they are, ask whether they are Execution IDs or Test Chain
+   Run IDs before resolving anything — Execution and Test Chain Run are separate ID spaces that can
+   overlap numerically (especially for older data), so never infer the type from the number's range
+   or from which tool happens to accept it. A Test Chain Run ID given for a check-design request
+   still needs resolving down to its underlying execution(s) via `get_test_chain_run_environment`
+   before calling `inspect_execution_outputs`. When exactly two Execution IDs are given together,
+   always interpret them as one baseline/test comparison pair, never as two independent
+   single-execution requests — take the first-named execution as baseline and the second as test
+   unless the request states otherwise, and call `inspect_execution_outputs` on both before writing
+   any check.
 2. Resolve the MIQA guidance from `$MIQA_DOCS_BASE_URL/<path>`, using
    `references/doc-paths.md`. If `MIQA_DOCS_BASE_URL` is not set, ask the user to set it and stop
    without writing a blob. Never translate the DSL from memory.
@@ -95,6 +105,12 @@ deployment-side facts this skill cannot otherwise check. If no blurb hints at ei
 research or use it, even when the request's own wording says "concordance," "accuracy," or similar —
 treat that wording as intent and translate it onto the closest raw-file/tabular equivalent instead
 (e.g. `paired_tabular_mdo_eval`/`tabular_mdo_eval`), noting the substitution in `coverage.md`.
+
+The blurb's presence is itself the confirmation — when a blurb for the family exists, include the
+check without looking for further proof. Do not let an unrelated failure (a different check, a
+different pipeline, a past run's malformed report) override that signal into dropping the check —
+that kind of history is a watch-item worth naming in `coverage.md`, not a reason to withhold the
+check itself.
 
 ## Translation rules
 
@@ -184,8 +200,16 @@ publish_adhoc_assertions(assertions, name, description, execution_id=None, apply
 ```
 
 Use the script filename or a concise request-derived name. Include the source, date, and coverage
-report in the description. Publish with `apply=True` only after explicit user approval. If the tool
-is unavailable, tell the user to paste the blob into Output Explorer's JSON tab.
+report in the description. Publish with `apply=True` only after explicit user approval. When asking
+for that approval, describe it in plain terms the user actually asked for — a temporary, shareable
+save that can be loaded in Output Explorer — not as "publishing" a formal record. Never expose tool
+or parameter names (`apply=True`, "ad-hoc record", `publish_adhoc_assertions`) in that question. Say
+plainly that this does not create or change a Test Block — it only saves this scratch link — and
+that turning it into a real Test Block is a separate, later step if the user wants one. For example:
+"Want me to save this so it's easy to share and load into Output Explorer? This won't create a Test
+Block — it's just a shareable link. We can wire it into an actual Test Block afterward if you want
+it to persist." If the tool is unavailable, tell the user to paste the blob into Output Explorer's
+JSON tab.
 
 `publish_adhoc_assertions` takes a single `execution_id` and returns a URL with one `exec_id` query
 param — it has no baseline-execution input. When the user has shared (or the request otherwise
