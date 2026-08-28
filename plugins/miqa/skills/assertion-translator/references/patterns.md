@@ -36,9 +36,6 @@ check_type across multiple invented groups.
 * `compare_all_fields` is called directly on `data_baseline.rows`, never chained after `.match()` —
   `match(...).compare_all_fields()` raises `AttributeError` (`match()`'s result only has
   `.compare_fields()`/`.compare_by()`).
-* `concordance` needs the pipeline's **Parsed Results** configured (structured result rows already in
-  Miqa) — it appears in vocabulary starter blurbs but isn't a drop-in substitute for a raw-file check
-  type like `paired_tabular_mdo_eval`/`tabular_mdo_eval`. Confirm before using it.
 
 ## Natural-language requests
 
