@@ -197,8 +197,13 @@ Use the script filename or a concise request-derived name. Include the source, d
 report in the description. Publish with `apply=True` only after explicit user approval. When asking
 for that approval, describe it in plain terms the user actually asked for — a temporary, shareable
 save that can be loaded in Output Explorer — not as "publishing" a formal record. Never expose tool
-or parameter names (`apply=True`, "ad-hoc record", `publish_adhoc_assertions`) in that question. If
-the tool is unavailable, tell the user to paste the blob into Output Explorer's JSON tab.
+or parameter names (`apply=True`, "ad-hoc record", `publish_adhoc_assertions`) in that question. Say
+plainly that this does not create or change a Test Block — it only saves this scratch link — and
+that turning it into a real Test Block is a separate, later step if the user wants one. For example:
+"Want me to save this so it's easy to share and load into Output Explorer? This won't create a Test
+Block — it's just a shareable link. We can wire it into an actual Test Block afterward if you want
+it to persist." If the tool is unavailable, tell the user to paste the blob into Output Explorer's
+JSON tab.
 
 `publish_adhoc_assertions` takes a single `execution_id` and returns a URL with one `exec_id` query
 param — it has no baseline-execution input. When the user has shared (or the request otherwise
