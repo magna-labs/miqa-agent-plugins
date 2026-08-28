@@ -106,6 +106,12 @@ research or use it, even when the request's own wording says "concordance," "acc
 treat that wording as intent and translate it onto the closest raw-file/tabular equivalent instead
 (e.g. `paired_tabular_mdo_eval`/`tabular_mdo_eval`), noting the substitution in `coverage.md`.
 
+The blurb's presence is itself the confirmation — when a blurb for the family exists, include the
+check without looking for further proof. Do not let an unrelated failure (a different check, a
+different pipeline, a past run's malformed report) override that signal into dropping the check —
+that kind of history is a watch-item worth naming in `coverage.md`, not a reason to withhold the
+check itself.
+
 ## Translation rules
 
 Create one check per question that a reviewer asks about the outputs. Combine helper functions,
