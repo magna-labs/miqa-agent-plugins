@@ -441,13 +441,20 @@
       diff-detail investigation unless the user asks for fresh digging on
       this specific run. If this is a NEW failure not seen before, do the
       real root-cause work (see SKILL.md step 4) before writing this
-      paragraph.}}</p>
+      paragraph. Either way, name the concrete diff — magnitude, direction,
+      the actual metric/check name — not a generic "content mismatch".}}</p>
 
-      <!-- Optional: only when there's a numeric reconciliation worth showing as a receipt -->
+      <!-- Optional: only when the root cause involves a numeric reconciliation worth
+      showing as a receipt — the actual failing metric's baseline-vs-actual values (or
+      similar), e.g. "Concordant bases: 917,567,082,504 -> 905,965,027,283". Do NOT
+      default this to the pass/warn/fail check tally — that's already shown in the
+      Results table's Checks column above, so repeating it here as a "proof" adds no
+      information the reader doesn't already have. Omit the whole block when there's
+      no numeric reconciliation worth showing (don't force one). -->
       <div class="proof">
-        <div class="line"><span>Checks passing</span><span class="val">{{PASS_N}} / {{TOTAL_N}}</span></div>
-        <div class="line"><span>Checks warning</span><span class="val">{{WARN_N}}</span></div>
-        <div class="line total"><span>= Checks failing</span><span class="val">{{FAIL_N}}</span></div>
+        <div class="line"><span>{{specific metric/field name}}</span><span class="val">{{baseline value &rarr; actual value}}</span></div>
+        <div class="line"><span>{{second metric/field name, if relevant}}</span><span class="val">{{baseline value &rarr; actual value}}</span></div>
+        <div class="line total"><span>= {{result label, e.g. "% delta" or a reconciling sum}}</span><span class="val">{{value}}</span></div>
       </div>
 
       <p>{{Follow-up: still open as of this build, or resolved/changed — and
