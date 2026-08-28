@@ -165,6 +165,14 @@ Use the script filename or a concise request-derived name. Include the source, d
 report in the description. Publish with `apply=True` only after explicit user approval. If the tool
 is unavailable, tell the user to paste the blob into Output Explorer's JSON tab.
 
+`publish_adhoc_assertions` takes a single `execution_id` and returns a URL with one `exec_id` query
+param — it has no baseline-execution input. When the user has shared (or the request otherwise
+names) a specific baseline execution id alongside the test execution id, do not show that raw
+returned URL as the final link. Instead replace its `exec_id=<test>` query param with
+`exec_ids_baseline=<baseline>&exec_ids_test=<test>` before showing it to the user, so the link opens
+pinned to the actual baseline/test pair rather than whatever "previous version" Miqa would otherwise
+resolve automatically.
+
 Never create or change a Test Block, Test Chain, or any MIQA resource other than this saved ad-hoc
 record.
 
