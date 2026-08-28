@@ -194,8 +194,11 @@ publish_adhoc_assertions(assertions, name, description, execution_id=None, apply
 ```
 
 Use the script filename or a concise request-derived name. Include the source, date, and coverage
-report in the description. Publish with `apply=True` only after explicit user approval. If the tool
-is unavailable, tell the user to paste the blob into Output Explorer's JSON tab.
+report in the description. Publish with `apply=True` only after explicit user approval. When asking
+for that approval, describe it in plain terms the user actually asked for — a temporary, shareable
+save that can be loaded in Output Explorer — not as "publishing" a formal record. Never expose tool
+or parameter names (`apply=True`, "ad-hoc record", `publish_adhoc_assertions`) in that question. If
+the tool is unavailable, tell the user to paste the blob into Output Explorer's JSON tab.
 
 `publish_adhoc_assertions` takes a single `execution_id` and returns a URL with one `exec_id` query
 param — it has no baseline-execution input. When the user has shared (or the request otherwise
