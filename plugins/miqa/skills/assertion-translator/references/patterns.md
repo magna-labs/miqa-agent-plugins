@@ -3,6 +3,40 @@
 Use these examples for translation shape. Confirm exact calls, argument order, and comparator names
 against the applicable path in `doc-paths.md`.
 
+## Top-level group keys must be the check_type
+
+Every check-level JSON fragment elsewhere in this file omits the outer wrapper for brevity — don't
+let that omission imply group keys are arbitrary. They are not. Every full worked example across the
+docs (`paired-tabular-mdo-eval.md`, `execution-stats-compare.md`, `paired-execution-stats.md`,
+`assertion-type-tabular_json_eval.md`, `file-based-test-parameters.md`, `assertion-type-concordance.md`)
+uses the check's own `check_type` string as the group key:
+
+```json
+{
+  "paired_tabular_mdo_eval": {
+    "report": true,
+    "checks": [ { "check_type": "paired_tabular_mdo_eval", "...": "..." } ]
+  }
+}
+```
+
+Never invent a semantic group name (`starter_checks`, `vcf_validation`, etc.) as a top-level key —
+the live schema's `patternProperties` regex is permissive enough to accept any name, so schema
+validation alone will not catch this mistake. Put every check of the same `check_type` in that one
+group's `checks` array, even when they answer unrelated reviewer questions — do not split one
+check_type across multiple invented groups.
+
+## Common gotchas
+
+* Repeated `file_rules`/`delimiter`/`comment_character`/`configuration` across checks in one group →
+  bind once in `_variables`, pull in with `_extends` (see `variables-and-precompute.md`). Config
+  nesting for the same parsing fields can differ by check_type (e.g. `add_headers` sits under
+  `configuration`/`baseline_configuration` for `paired_tabular_mdo_eval` but top-level for
+  `tabular_mdo_eval`) — confirm each check_type's own doc page before reusing one bundle across types.
+* `compare_all_fields` is called directly on `data_baseline.rows`, never chained after `.match()` —
+  `match(...).compare_all_fields()` raises `AttributeError` (`match()`'s result only has
+  `.compare_fields()`/`.compare_by()`).
+
 ## Natural-language requests
 
 Separate requested meaning from data evidence:

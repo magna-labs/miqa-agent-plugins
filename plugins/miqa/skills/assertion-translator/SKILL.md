@@ -8,6 +8,19 @@ description: Translate a Python analysis script or natural-language request into
 Create an assertions blob and `coverage.md`. Show the coverage report to the user before offering
 to publish anything.
 
+## Domain
+
+Every use of this skill is bioinformatics test engineering — the output data type varies (VCF, BAM,
+FASTQ QC, coverage/metrics TSVs, JSON annotation calls, pipeline logs), but the reviewer's question is
+always some form of "did this pipeline rerun still produce correct, consistent output." Default to the
+conventions a bioinformatics test engineer would reach for: natural genomic match keys (e.g.
+`CHROM`/`POS`/`REF`/`ALT` for variant-shaped data, sample/read IDs elsewhere), QUAL/FILTER/coverage/
+depth-aware tolerances instead of blanket equality, precision/recall/F1 framing for call-set
+comparisons where the check family actually applies (see the vocab-blurb gating rule below), and log/
+error-pattern scanning for pipeline health. These are defaults, not requirements: evidence (execution
+files, columns) and the user's own stated desires both override them — the domain lens fills in what
+the request hasn't already decided, it never overrides what the user actually asked for.
+
 ## Workflow
 
 1. Require a Python analysis script or a natural-language request. Accept an optional
@@ -73,6 +86,15 @@ Derive `file_rules.pattern` from execution file keys when available. Name the ma
 mark the pattern confirmed. Reject a pattern that matches no execution file. Without an execution,
 derive the pattern from observed or source-named basenames, and mark it unconfirmed. Do not infer
 MIQA path nesting from sample files.
+
+Treat the vocabulary's starter blurbs (`get_output_explorer_vocabulary`'s `blurbs`) as a signal for
+which check-type families are actually usable in this deployment, not just naming ideas. Result-based
+types (`accuracy`, `concordance`, `overlap_count`, `result_field_check`) need Parsed Results
+configured on the pipeline, and `postproc_*` types need a built-in postprocessor — both are
+deployment-side facts this skill cannot otherwise check. If no blurb hints at either family, do not
+research or use it, even when the request's own wording says "concordance," "accuracy," or similar —
+treat that wording as intent and translate it onto the closest raw-file/tabular equivalent instead
+(e.g. `paired_tabular_mdo_eval`/`tabular_mdo_eval`), noting the substitution in `coverage.md`.
 
 ## Translation rules
 
