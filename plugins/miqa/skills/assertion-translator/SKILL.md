@@ -30,7 +30,11 @@ the request hasn't already decided, it never overrides what the user actually as
    overlap numerically (especially for older data), so never infer the type from the number's range
    or from which tool happens to accept it. A Test Chain Run ID given for a check-design request
    still needs resolving down to its underlying execution(s) via `get_test_chain_run_environment`
-   before calling `inspect_execution_outputs`.
+   before calling `inspect_execution_outputs`. When exactly two Execution IDs are given together,
+   always interpret them as one baseline/test comparison pair, never as two independent
+   single-execution requests — take the first-named execution as baseline and the second as test
+   unless the request states otherwise, and call `inspect_execution_outputs` on both before writing
+   any check.
 2. Resolve the MIQA guidance from `$MIQA_DOCS_BASE_URL/<path>`, using
    `references/doc-paths.md`. If `MIQA_DOCS_BASE_URL` is not set, ask the user to set it and stop
    without writing a blob. Never translate the DSL from memory.
