@@ -135,6 +135,9 @@ For a natural-language request, write outcome fields only when the request state
 condition. Preserve its meaning without making the condition stricter or weaker. When no condition
 is stated, write the computed result only.
 
+Give every check a `description` field, in addition to `name`: one sentence stating the reviewer
+question it answers.
+
 ## Coverage report
 
 Before marking a behavior `dropped`, check the analyzer and chart paths in
@@ -167,6 +170,12 @@ omit a source behavior, material limit, threshold candidate, assumption, exclude
 `SKIPPED` result.
 
 ## Validation
+
+Before running the schema validator, verify by eye that every top-level group key in the blob is
+the exact `check_type` string shared by every check inside that group's `checks` array (see
+`references/patterns.md`). The draft-07 schema's `patternProperties` accepts any group name, so a
+`PASS` from the validator below is not evidence this is correct — it only catches this if you check
+it yourself, every time, before treating a blob as ready.
 
 Run via `uvx`, resolving `miqatools` transitively through the exact `miqa-mcp` version this plugin
 already pins in `../../.mcp.json` (its `args` entry `miqa-mcp@<version>`) — this guarantees a
