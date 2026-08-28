@@ -1,6 +1,6 @@
 ---
 name: assertion-translator
-description: Translate a Python analysis script or natural-language request into MIQA Output Explorer assertions and a coverage report. Use when a user asks for MIQA assertions, Output Explorer checks, or a translation of analysis code or stated requirements into MIQA tests.
+description: Translate a Python analysis script or natural-language request into MIQA Output Explorer assertions and a coverage report. Use when a user asks for MIQA assertions, Output Explorer checks, a translation of analysis code or stated requirements into MIQA tests, test/check suggestions for one or two executions, or help designing what checks a Test Block should contain (this skill drafts the assertions content only — see the Publish gate for what it never creates).
 ---
 
 # Assertion Translator
@@ -24,7 +24,13 @@ the request hasn't already decided, it never overrides what the user actually as
 ## Workflow
 
 1. Require a Python analysis script or a natural-language request. Accept an optional
-   column-mapping JSON, execution id, and sample input files.
+   column-mapping JSON, execution id, and sample input files. If the request names bare numeric
+   IDs without saying which MIQA entity they are, ask whether they are Execution IDs or Test Chain
+   Run IDs before resolving anything — Execution and Test Chain Run are separate ID spaces that can
+   overlap numerically (especially for older data), so never infer the type from the number's range
+   or from which tool happens to accept it. A Test Chain Run ID given for a check-design request
+   still needs resolving down to its underlying execution(s) via `get_test_chain_run_environment`
+   before calling `inspect_execution_outputs`.
 2. Resolve the MIQA guidance from `$MIQA_DOCS_BASE_URL/<path>`, using
    `references/doc-paths.md`. If `MIQA_DOCS_BASE_URL` is not set, ask the user to set it and stop
    without writing a blob. Never translate the DSL from memory.
