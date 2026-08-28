@@ -17,9 +17,9 @@ conventions a bioinformatics test engineer would reach for: natural genomic matc
 `CHROM`/`POS`/`REF`/`ALT` for variant-shaped data, sample/read IDs elsewhere), QUAL/FILTER/coverage/
 depth-aware tolerances instead of blanket equality, precision/recall/F1 framing for call-set
 comparisons where the check family actually applies (see the vocab-blurb gating rule below), and log/
-error-pattern scanning for pipeline health. Evidence — execution files, columns, explicit request
-wording — always overrides these defaults; the domain lens shapes translation choices, not the
-columns or values themselves.
+error-pattern scanning for pipeline health. These are defaults, not requirements: evidence (execution
+files, columns) and the user's own stated desires both override them — the domain lens fills in what
+the request hasn't already decided, it never overrides what the user actually asked for.
 
 ## Workflow
 
