@@ -2,7 +2,7 @@
   "mcpServers": {
     "miqa-mcp": {
       "command": "uvx",
-      "args": ["--refresh", "--prerelease=allow", "miqa-mcp@0.2.15"],
+      "args": ["--refresh", "--prerelease=allow", "miqa-mcp@0.2.18rc0"],
       "env": {
         "MIQA_SERVER_URL": "${MIQA_SERVER_URL}",
         "MIQA_API_KEY": "${MIQA_API_KEY}"
