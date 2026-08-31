@@ -61,10 +61,25 @@ shared pipeline component, unlike the read-only triage skills.
    - Never guess the boundary from a version name or docker tag pattern
      alone, in any of these cases.
 
-2. **Collect every ComponentVersion touched across the streak — not just
-   the latest.** Call `list_component_versions_for_test_chain_run(run_id)`
-   for the first failing TCR AND the latest failing TCR at minimum; if the
-   streak spans more than two builds, sample the ones in between too
+   **Going all the way back to the true first failure is not automatic —
+   confirm scope with the user before locking it in.** A streak can span
+   weeks or dozens of builds; rolling a fix out across all of them may be
+   far more than the user actually wants in one pass. Once you've found the
+   candidate first-failing TCR, tell the user how far back it sits (date,
+   TCR id, and roughly how many failing runs/ComponentVersions lie between
+   it and the latest) and ask whether to fix starting there, or use a
+   narrower boundary instead — a specific TCR/date they name, or just "the
+   last N failing versions." Only proceed to step 2 with the range they
+   confirm. This question is separate from, and comes before, step 5's
+   apply-scope question (going-forward vs. one-off) — this one decides
+   *which versions* are in scope at all, that one decides *how* the
+   confirmed versions get patched.
+
+2. **Collect every ComponentVersion touched across the confirmed range —
+   not just the latest.** Call `list_component_versions_for_test_chain_run(run_id)`
+   for the boundary TCR the user confirmed in step 1 AND the latest failing
+   TCR at minimum; if the range spans more than two builds, sample the ones
+   in between too
    (docker tags/versions typically change every run in an active pipeline).
    Build the set of unique `(component_id, component_version_id)` pairs
    from these results — use those exact IDs, never match by display name
