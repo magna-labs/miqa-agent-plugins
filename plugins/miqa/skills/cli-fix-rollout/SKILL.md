@@ -2,7 +2,7 @@
 name: cli-fix-rollout
 description: Use whenever a Miqa Component's actual CLI invocation/command needs to change — a renamed or newly-required flag/subcommand, a stale argument, etc. — not a baseline or check-config issue. Applies equally whether the fix was identified by a prior root-cause investigation (active-triggers or otherwise) in this conversation, or the user just asks directly to fix/update a component's command with no investigation at all — the skill establishes the failing streak itself in the latter case. Rolls the fix out starting at the FIRST failing Test Chain Run in the streak (every ComponentVersion touched by that streak, not just the latest), dry-running the command edit and getting explicit permission before applying, then dry-running and applying execution retries. Trigger phrases include "fix the CLI/command", "update the component version's command", "the docker command is wrong/needs a new flag", "roll this fix out from the first failure", "retry these runs after the fix".
 metadata:
-  version: 1.0.0
+  version: 1.1.0
 ---
 
 # Miqa CLI Fix Rollout
@@ -70,7 +70,7 @@ shared pipeline component, unlike the read-only triage skills.
    it and the latest) and ask whether to fix starting there, or use a
    narrower boundary instead — a specific TCR/date they name, or just "the
    last N failing versions." Only proceed to step 2 with the range they
-   confirm. This question is separate from, and comes before, step 5's
+   confirm. This question is separate from, and comes before, step 6's
    apply-scope question (going-forward vs. one-off) — this one decides
    *which versions* are in scope at all, that one decides *how* the
    confirmed versions get patched.
@@ -102,7 +102,80 @@ shared pipeline component, unlike the read-only triage skills.
    that version's own text, not a hardcoded find/replace string that
    assumes every version matches latest verbatim.
 
-4. **Dry-run every version's fix before applying anything.** For each
+4. **When the exact fix isn't fully knowable from the trigger error alone,
+   construct your best effort and rank your confidence per change — don't
+   stop at "I can't be sure."** A crash log's own `--help`/usage dump (often
+   printed automatically when a required flag is missing), adjacent flag
+   descriptions, and the current command's structure are usually enough to
+   get most of the way there even when no one has confirmed the full fix.
+   - Walk the current command flag-by-flag and classify each proposed
+     change into three tiers, and present all three together rather than
+     quietly folding guesses in as if confirmed:
+     - **High confidence** — forced by the error message itself, or an
+       exact-named match against authoritative help/docs output.
+     - **Medium confidence** — a plausible rename/rewrite with matching
+       semantics, type, and value range, but not proven identical.
+     - **Speculative** — no clear replacement exists in the evidence at
+       all; you're inferring intent (e.g. guessing that mechanism X was
+       retired in favor of mechanism Y). Flag these as needing real
+       verification (the tool's own changelog/docs, or a person who knows
+       the CLI) before anyone trusts them.
+   - **The tiered flag-by-flag breakdown explains the reasoning; it doesn't
+     replace showing the actual result.** Alongside it, always show the
+     full reconstructed command as one complete before/after string (not
+     just the individual changed flags quoted in isolation), and the full
+     updated `inputs_single`/`resource_files` array in full if any entries
+     were added or changed (not just the new entry by itself) — the same
+     shape `update_component_version`'s own dry-run diff would show. The
+     user needs to see exactly what the whole resulting command and file
+     list would look like before confirming anything, not reconstruct it
+     themselves from a bullet list of deltas.
+   - If a speculative change would also alter a downstream artifact's shape
+     (e.g. an output file's format or extension), say so explicitly — that
+     usually means a follow-up Test Block/check edit is needed too, not
+     just the Component command. Don't leave this as a passing mention:
+     track it through to step 9 and close the rollout by asking the user
+     directly whether they want that check updated too (naming the
+     specific check by name) — this skill doesn't edit Test
+     Block/check config itself, so the honest close is an explicit offer
+     to hand that off, not silence once the Component fix is applied.
+   - **If the fix requires a genuinely new input** — a file or resource the
+     ComponentVersion doesn't currently mount at all, not just a renamed
+     flag — don't invent a path. You'll need to ask the user whether it
+     already exists somewhere in their cloud storage and, if so, its exact
+     path/link, so it can be wired into `inputs_single` correctly. If it
+     doesn't exist yet, that's a hard blocker outside this skill's scope —
+     someone needs to produce and upload it first.
+   - **If a required value is unknowable from context** (a threshold or
+     parameter that depends on domain judgement, not on the CLI's own
+     shape), you'll need to ask the user for it directly rather than
+     reusing an unrelated existing value just because it happens to share a
+     similar valid range.
+   - **Collect every open item from the two bullets above into one
+     up-front ask, don't trickle them out one at a time.** Finish the
+     flag-by-flag pass first, then post a single consolidated request
+     naming exactly what's missing and why — e.g. "I need two things from
+     you to build this fix: (1) the path to `<file>` if it already exists
+     in your bucket, and (2) the value to use for `<parameter>`, since I
+     can't infer it from the CLI's own shape." Pause there; don't proceed
+     past step 4 with placeholders for these while waiting on a real
+     answer, and don't ask about the first missing item, get an answer,
+     then separately ask about the second.
+   - **If, even after this, the fix stays too uncertain to build with
+     confidence** (several speculative flags stacked together, an unclear
+     file requirement, or the user doesn't have the domain knowledge to
+     confirm the details on the spot) — offer the fallback: point the user
+     to that ComponentVersion's edit page in the Miqa web UI so they can
+     make the edit themselves with full knowledge of the correct command,
+     and ask them to confirm once they've saved it. Once confirmed, pull
+     that version's live command (a dry-run's `diff.old`, or
+     `get_test_trigger_template_json`) and propagate the same edit to every
+     other ComponentVersion in the confirmed streak (step 2's set) rather
+     than leaving the rest still broken — route those remaining versions
+     through the normal dry-run-then-confirm-then-apply flow (steps 5-7)
+     like any other version, this isn't a shortcut around it.
+
+5. **Dry-run every version's fix before applying anything.** For each
    `(component_id, version_id)` in the set, call `update_component_version`
    with `apply=false` and the proposed new command. Collect all the
    diffs — do not apply the first one before you've previewed the rest;
@@ -115,7 +188,7 @@ shared pipeline component, unlike the read-only triage skills.
      which preview didn't go through and ask whether to retry it before
      continuing.
 
-5. **Get one explicit go-ahead before applying anything, and resolve the
+6. **Get one explicit go-ahead before applying anything, and resolve the
    one-off/going-forward question up front.** `update_component_version`'s
    own contract: if the version being fixed has `is_latest: false`, a
    going-forward fix also requires updating the latest version in the same
@@ -128,7 +201,7 @@ shared pipeline component, unlike the read-only triage skills.
    corrected command is expected to be cut separately). Do not apply
    before this is answered, and do not assume "going-forward" silently.
 
-6. **Apply only the versions the user confirmed, one at a time, and surface
+7. **Apply only the versions the user confirmed, one at a time, and surface
    every `resource_url`.** Call `update_component_version` with
    `apply=true` for each confirmed `(component_id, version_id)`. Per the
    tool's own contract, whenever the result contains `resource_url`, show
@@ -137,24 +210,32 @@ shared pipeline component, unlike the read-only triage skills.
    specific error verbatim rather than proceeding to the next version
    silently.
 
-7. **Retry the affected executions — dry-run, then apply, as its own
+8. **Retry the affected executions — dry-run, then apply, as its own
    separate confirmation.** For each TCR in the streak that should be
    re-run (typically every failing TCR from the first failure through the
    latest), call `retry_test_chain_run_executions` with `apply=false`
    first and present the count/execution-ID set it returns. This is a
-   distinct action from step 6's command fix — get a second explicit
+   distinct action from step 7's command fix — get a second explicit
    confirmation before calling it again with `apply=true`, even if the
    user already approved the command fix. Don't default to `all=True`
    (which would also re-run already-passing executions) unless the user
    asks for that.
 
-8. **Report what actually changed.** Close with a short summary: which
+9. **Report what actually changed.** Close with a short summary: which
    ComponentVersions were patched (id + name + old→new command), whether
    it was applied going-forward or one-off, and which TCRs had retries
    kicked off (with their `resource_url`s). Retries run asynchronously —
    don't claim success for the underlying bug until a retried run actually
    completes; offer to check back on the retried TCRs rather than assuming
-   they passed.
+   they passed. If step 4 flagged a downstream check that a speculative
+   change would break, this is where that gets closed out — ask explicitly
+   whether the user wants that check updated too, naming it by name; don't
+   let it quietly drop off once the Component fix lands. Offer both a real
+   fix (updating the check's file pattern/logic to match the new output
+   shape) and a lighter interim option (temporarily downgrading that
+   check's `failtype` from fail to warn, so the still-uncertain downstream
+   mismatch stops masking other real failures on the same run without
+   pretending it's resolved) — let the user pick, don't default to either.
 
 ## Notes
 
