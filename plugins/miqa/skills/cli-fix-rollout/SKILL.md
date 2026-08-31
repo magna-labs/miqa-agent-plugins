@@ -135,7 +135,7 @@ shared pipeline component, unlike the read-only triage skills.
      carry-over** — wrap every placeholder token and every flag that's
      new, renamed, or has a changed value in its own inline code span
      (single backticks around just that flag+value, e.g.
-     `` `--tumor-bam /workdir/$bamNAME` ``), and leave unchanged flags in
+     `` `--new-required-flag <value>` ``), and leave unchanged flags in
      plain text outside any code span. Don't use bold (`**...**`) for this —
      in this terminal it renders as literal asterisks around the text
      rather than actual bold, which reads worse than no marking at all.
