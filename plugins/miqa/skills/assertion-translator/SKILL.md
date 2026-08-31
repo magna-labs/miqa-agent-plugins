@@ -36,8 +36,10 @@ the request hasn't already decided, it never overrides what the user actually as
    unless the request states otherwise, and call `inspect_execution_outputs` on both before writing
    any check.
 2. Resolve the MIQA guidance from `$MIQA_DOCS_BASE_URL/<path>`, using
-   `references/doc-paths.md`. If `MIQA_DOCS_BASE_URL` is not set, ask the user to set it and stop
-   without writing a blob. Never translate the DSL from memory.
+   `references/doc-paths.md`. If `MIQA_DOCS_BASE_URL` is not set, call the MCP
+   `get_documentation_url` tool and use its `docs_url` as the base in its place if it returns one.
+   If that tool is unavailable or returns a null `docs_url`, ask the user to set
+   `MIQA_DOCS_BASE_URL` and stop without writing a blob. Never translate the DSL from memory.
 3. Call `get_output_explorer_vocabulary()` once and save its payload. Use it for the schema, enum
    values, starter blurbs, and global variable names. If the tool or a vocabulary section is
    unavailable, continue where possible and record the validation that cannot run. Never hardcode
@@ -131,12 +133,39 @@ comparison with `.summary().is_match_within_threshold`; do not return the compar
 `.results()`, or `.summary()` from `stat`. If detail, table, or chart expressions reuse the full
 comparison, bind it once in `_precompute` and keep the Boolean expression in `stat`.
 
+For any expression-based check (`tabular_mdo_eval`, `json_mdo_eval`, and their paired/postproc
+variants, `execution_stats`, etc. — not the param-declarative types like `result_field_check`,
+which already surface their raw value separately from `relationship`/`threshold`) whose `stat`
+is a Boolean built by comparing a computed value against a threshold — e.g.
+`data.rows.map('DP').mean >= 1000` — never leave the computed value only reachable inside the
+Boolean. Bind it once in `_precompute` and set `detail_display_stat` to that same bound name, so
+the report shows the actual number next to the pass/fail result instead of just true/false:
+
+```json
+{
+  "_precompute": { "avg_dp": "data.rows.map('DP').mean" },
+  "stat": "avg_dp >= 1000",
+  "detail_display_stat": "avg_dp"
+}
+```
+
+Apply this whenever the request states a threshold outcome (see below); a report-only stat with
+no gate has nothing to add a `detail_display_stat` alongside, since the computed value is already
+the whole `stat`.
+
 For a natural-language request, write outcome fields only when the request states a pass or fail
 condition. Preserve its meaning without making the condition stricter or weaker. When no condition
 is stated, write the computed result only.
 
 Give every check a `description` field, in addition to `name`: one sentence stating the reviewer
 question it answers.
+
+When the source is a Jira (or other tracked-requirement) ticket, tag every check translated from
+it with `external_id` set to that ticket's key (e.g. `"BTR-1"`) by default — do not ask first; it
+only makes the check findable via `api_get_test_blocks_by_external_id`/
+`api_list_test_block_external_ids` later, and is trivial to change. Ask only when the source names
+more than one ticket and it is unclear which key applies to which check, or the request itself
+says not to tag.
 
 ## Coverage report
 
