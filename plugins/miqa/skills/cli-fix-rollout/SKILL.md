@@ -130,17 +130,23 @@ shared pipeline component, unlike the read-only triage skills.
      short lines of prose, name the load-bearing renamed/added flags from
      the *actual* command being fixed (using their real names from that
      pipeline, not a placeholder) and say what forced each one (e.g. "the
-     two required input flags were renamed, forced by the error message"),
-     then let the diff itself carry the rest of the detail — don't
-     re-describe every unchanged or minor flag in prose when the diff
-     already shows it. This document's own guidance text should stick to
-     generic, structural phrasing when describing the technique (as here)
-     rather than naming a specific pipeline's flags as a worked example —
-     that terminology belongs only in an actual session's fix, not in this
-     shared skill file. Only expand into the full tiered breakdown if the
-     user asks for the reasoning behind a specific change, pushes back on
-     a guess, or the fix has enough speculative/placeholder flags that a
-     bare diff would leave the risk illegible.
+     two required input flags were renamed, forced by the error message").
+     Follow that with one compact bullet listing the remaining
+     non-placeholder translations — the Medium-confidence renames/rewrites
+     that aren't forced by the error but also aren't placeholders (e.g.
+     "also translated directly: X → Y (same range/semantics); A/B/C → D/E/F
+     under a shared output setting") — so the user can see what was
+     asserted as equivalent without a full table. Then let the diff itself
+     carry the rest of the detail — don't re-describe every unchanged flag
+     in prose when the diff already shows it. This document's own guidance
+     text should stick to generic, structural phrasing when describing the
+     technique (as here) rather than naming a specific pipeline's flags as
+     a worked example — that terminology belongs only in an actual
+     session's fix, not in this shared skill file. Only expand into the
+     full tiered breakdown if the user asks for the reasoning behind a
+     specific change, pushes back on a guess, or the fix has enough
+     speculative/placeholder flags that the condensed form would leave the
+     risk illegible.
    - **The prose never replaces showing the actual result.** Always show
      the full reconstructed command as one complete before/after string
      (not just the individual changed flags quoted in isolation), and the
@@ -175,7 +181,11 @@ shared pipeline component, unlike the read-only triage skills.
    - If a speculative change would also alter a downstream artifact's shape
      (e.g. an output file's format or extension), say so explicitly — that
      usually means a follow-up Test Block/check edit is needed too, not
-     just the Component command. Don't leave this as a passing mention:
+     just the Component command. Phrase the impact as "may break" rather
+     than "will break": the change is still speculative at this point (the
+     user hasn't confirmed it, and a web-UI edit could land on a different
+     shape entirely), so hedge accordingly rather than asserting a
+     downstream failure as settled fact. Don't leave this as a passing mention:
      track it through to step 9 and close the rollout by asking the user
      directly whether they want that check updated too (naming the
      specific check by name) — this skill doesn't edit Test
