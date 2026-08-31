@@ -2,7 +2,7 @@
 name: cli-fix-rollout
 description: Use whenever a Miqa Component's actual CLI invocation/command needs to change — a renamed or newly-required flag/subcommand, a stale argument, etc. — not a baseline or check-config issue. Applies equally whether the fix was identified by a prior root-cause investigation (active-triggers or otherwise) in this conversation, or the user just asks directly to fix/update a component's command with no investigation at all — the skill establishes the failing streak itself in the latter case. Rolls the fix out starting at the FIRST failing Test Chain Run in the streak (every ComponentVersion touched by that streak, not just the latest), dry-running the command edit and getting explicit permission before applying, then dry-running and applying execution retries. Trigger phrases include "fix the CLI/command", "update the component version's command", "the docker command is wrong/needs a new flag", "roll this fix out from the first failure", "retry these runs after the fix".
 metadata:
-  version: 1.2.3
+  version: 1.2.4
 ---
 
 # Miqa CLI Fix Rollout
@@ -110,8 +110,10 @@ shared pipeline component, unlike the read-only triage skills.
    descriptions, and the current command's structure are usually enough to
    get most of the way there even when no one has confirmed the full fix.
    - Walk the current command flag-by-flag and classify each proposed
-     change into three tiers, and present all three together rather than
-     quietly folding guesses in as if confirmed:
+     change into three tiers internally — this classification drives what
+     gets a placeholder vs. what gets asserted as a real value, so do it
+     even though the full breakdown isn't always shown (see the next
+     bullet):
      - **High confidence** — forced by the error message itself, or an
        exact-named match against authoritative help/docs output.
      - **Medium confidence** — a plausible rename/rewrite with matching
@@ -121,16 +123,72 @@ shared pipeline component, unlike the read-only triage skills.
        retired in favor of mechanism Y). Flag these as needing real
        verification (the tool's own changelog/docs, or a person who knows
        the CLI) before anyone trusts them.
-   - **The tiered flag-by-flag breakdown explains the reasoning; it doesn't
-     replace showing the actual result.** Alongside it, always show the
-     full reconstructed command as one complete before/after string (not
-     just the individual changed flags quoted in isolation), and the full
-     updated `inputs_single`/`resource_files` array in full if any entries
+   - **Default to a condensed presentation, not the full tiered
+     table.** Skip printing the three-tier breakdown as a labeled
+     High/Medium/Speculative list by default — it reads as too much text
+     for what should be scannable at a glance. Instead, in one or two
+     short lines of prose, name the load-bearing renamed/added flags from
+     the *actual* command being fixed (using their real names from that
+     pipeline, not a placeholder) and say what forced each one (e.g. "the
+     two required input flags were renamed, forced by the error message").
+     Follow that with one compact bullet listing the remaining
+     non-placeholder translations — the Medium-confidence renames/rewrites
+     that aren't forced by the error but also aren't placeholders. Hedge
+     this bullet explicitly rather than asserting it as fact — these are
+     inferred, not confirmed — with an opener like "From the log message,
+     I think I can translate the following directly: X → Y (same
+     range/semantics); A → D, B → E, C → F under a shared output setting."
+     List each pairing as its own individual mapping (A → D, B → E, C → F)
+     rather than grouping the old and new names into two slash-separated
+     clusters (A/B/C → D/E/F) — the grouped form forces the reader to
+     count positions to figure out which old flag maps to which new one,
+     while individual pairings are unambiguous at a glance. Keep this
+     bullet to renames/rewrites only — leave out flags that stayed
+     unchanged (the diff already shows those plainly, so restating them
+     here is redundant). If an unchanged flag is worth calling out at all
+     (e.g. because its meaning could plausibly have shifted along with
+     everything else and you want to reassure the user it didn't), put
+     that in its own separate sentence rather than tacking it onto the end
+     of the mapping list with a semicolon — mixing "renamed to" pairs and
+     "stayed the same" facts in one run-on list blurs two different kinds
+     of information together. Don't phrase
+     it as "also translated directly" or similar flat assertions; the
+     hedge is what tells the user this bullet is still a judgment call,
+     distinct from the forced renames above it. This gives the user
+     visibility into what was asserted as equivalent without a full table.
+     Close the bullet with a short invitation to correct it (e.g. "let me
+     know if any of those look wrong") — a hedge that never invites
+     correction reads as decorative rather than a real signal that the
+     mapping could be off. Keep this invitation distinct from, and
+     separate in tone from, the concrete placeholder asks later in the
+     message: those are required answers needed to apply the fix at all,
+     this is an optional "flag it if I got something wrong" — don't let
+     the two blur into one open-ended "let me know what you think"
+     that reads as a menu of next steps. Then let the diff itself
+     carry the rest of the detail — don't re-describe every unchanged flag
+     in prose when the diff already shows it. This document's own guidance
+     text should stick to generic, structural phrasing when describing the
+     technique (as here) rather than naming a specific pipeline's flags as
+     a worked example — that terminology belongs only in an actual
+     session's fix, not in this shared skill file. Only expand into the
+     full tiered breakdown if the user asks for the reasoning behind a
+     specific change, pushes back on a guess, or the fix has enough
+     speculative/placeholder flags that the condensed form would leave the
+     risk illegible.
+   - **The prose never replaces showing the actual result.** Always show
+     the full reconstructed command as one complete before/after string
+     (not just the individual changed flags quoted in isolation), and the
+     full updated `inputs_single`/`resource_files` list if any entries
      were added or changed (not just the new entry by itself) — the same
      shape `update_component_version`'s own dry-run diff would show. The
      user needs to see exactly what the whole resulting command and file
      list would look like before confirming anything, not reconstruct it
-     themselves from a bullet list of deltas.
+     themselves from a bullet list of deltas. Render `inputs_single`/
+     `resource_files` as a real bullet list (`dest ← source`, one per
+     line), or as pretty-printed multi-line JSON with one entry per line —
+     either is fine. What's never acceptable is dumping the array
+     jammed onto a single line: that's what actually makes it hard to
+     scan, not the JSON syntax itself.
    - **Show the full command as a git-style diff, not inline markup.**
      Present the before/after as a ` ```diff ` fenced block: a `-` line
      with the complete old command, a `+` line with the complete new
@@ -151,7 +209,11 @@ shared pipeline component, unlike the read-only triage skills.
    - If a speculative change would also alter a downstream artifact's shape
      (e.g. an output file's format or extension), say so explicitly — that
      usually means a follow-up Test Block/check edit is needed too, not
-     just the Component command. Don't leave this as a passing mention:
+     just the Component command. Phrase the impact as "may break" rather
+     than "will break": the change is still speculative at this point (the
+     user hasn't confirmed it, and a web-UI edit could land on a different
+     shape entirely), so hedge accordingly rather than asserting a
+     downstream failure as settled fact. Don't leave this as a passing mention:
      track it through to step 9 and close the rollout by asking the user
      directly whether they want that check updated too (naming the
      specific check by name) — this skill doesn't edit Test
@@ -235,17 +297,22 @@ shared pipeline component, unlike the read-only triage skills.
    to attempt anyway; report the rejection plainly and fall back to a
    hand-written diff for that version). Collect all the diffs — do not
    apply the first one before you've previewed the rest.
-   - **Always show the complete diff returned by the dry-run, every time,
-     for every version — never summarize it, abbreviate it, or refer back
-     to an earlier message ("as shown above") instead of reprinting it.**
-     Render it the same way as step 4: a ` ```diff ` fenced block with the
-     full old command on a `-` line and the full new command on a `+`
-     line (not just the changed flags in isolation), and, whenever
-     `inputs_single`/`resource_files` changed, the complete old array and
-     complete new array. Present the complete before/after set for every
-     affected version together, so the user is confirming one coherent
-     rollout against real diffs they can read in full, not a series of
-     one-off edits or a paraphrase they have to trust.
+   - **Always show the complete diff returned by the dry-run — never
+     summarize it, abbreviate it, or refer back to an earlier message
+     ("as shown above") instead of reprinting it.** Render it the same way
+     as step 4: a ` ```diff ` fenced block with the full old command on a
+     `-` line and the full new command on a `+` line (not just the changed
+     flags in isolation), and, whenever `inputs_single`/`resource_files`
+     changed, the complete old and new lists rendered as bullets
+     (`dest ← source`) or pretty-printed multi-line JSON — never jammed
+     onto one line. When two or more versions in the set come back with
+     byte-identical old commands (confirm this from each dry-run's own
+     `diff.old`, don't assume it), show that one diff once and name every
+     version it applies to instead of reprinting the same block per
+     version — the user is confirming one coherent rollout, and a duplicate diff is
+     exactly the kind of extra text that buries the parts that actually
+     differ. Only repeat the full diff per version when the versions'
+     underlying commands actually differ from each other.
    - If a diff still contains a placeholder from step 4, say so right next
      to that diff (e.g. "contains a placeholder — needs your answer before
      this can be applied") so it's never mistaken for an apply-ready diff.
