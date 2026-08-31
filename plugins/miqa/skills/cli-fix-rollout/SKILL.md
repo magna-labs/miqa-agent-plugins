@@ -133,10 +133,16 @@ shared pipeline component, unlike the read-only triage skills.
      two required input flags were renamed, forced by the error message").
      Follow that with one compact bullet listing the remaining
      non-placeholder translations — the Medium-confidence renames/rewrites
-     that aren't forced by the error but also aren't placeholders (e.g.
-     "also translated directly: X → Y (same range/semantics); A/B/C → D/E/F
-     under a shared output setting") — so the user can see what was
-     asserted as equivalent without a full table. Then let the diff itself
+     that aren't forced by the error but also aren't placeholders. Hedge
+     this bullet explicitly rather than asserting it as fact — these are
+     inferred, not confirmed — with an opener like "From the log message,
+     I believe I can translate the following directly: X → Y (same
+     range/semantics); A/B/C → D/E/F under a shared output setting." Don't
+     phrase it as "also translated directly" or similar flat assertions;
+     the hedge is what tells the user this bullet is still a judgment call,
+     distinct from the forced renames above it. This gives the user
+     visibility into what was asserted as equivalent without a full table.
+     Then let the diff itself
      carry the rest of the detail — don't re-describe every unchanged flag
      in prose when the diff already shows it. This document's own guidance
      text should stick to generic, structural phrasing when describing the
