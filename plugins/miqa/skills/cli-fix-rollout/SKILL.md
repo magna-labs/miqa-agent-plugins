@@ -2,7 +2,7 @@
 name: cli-fix-rollout
 description: Use whenever a Miqa Component's actual CLI invocation/command needs to change — a renamed or newly-required flag/subcommand, a stale argument, etc. — not a baseline or check-config issue. Applies equally whether the fix was identified by a prior root-cause investigation (active-triggers or otherwise) in this conversation, or the user just asks directly to fix/update a component's command with no investigation at all — the skill establishes the failing streak itself in the latter case. Rolls the fix out starting at the FIRST failing Test Chain Run in the streak (every ComponentVersion touched by that streak, not just the latest), dry-running the command edit and getting explicit permission before applying, then dry-running and applying execution retries. Trigger phrases include "fix the CLI/command", "update the component version's command", "the docker command is wrong/needs a new flag", "roll this fix out from the first failure", "retry these runs after the fix".
 metadata:
-  version: 1.2.0
+  version: 1.2.1
 ---
 
 # Miqa CLI Fix Rollout
@@ -27,7 +27,7 @@ have exactly one Miqa MCP server connected — just use it.
 renamed/missing flag or subcommand, a stale argument. That determination
 can come from a prior root-cause in this conversation (e.g. `active-triggers`
 concluding "real product regression" with a quoted CLI error), or the user
-can simply ask directly ("the msi_caller command needs a subcommand now",
+can simply ask directly ("the component's command needs a subcommand now",
 "update this component's docker command") with no investigation having
 happened at all — both are equally valid entry points, see step 1. Never
 trigger this off a routine sweep on your own initiative; it mutates a
@@ -98,9 +98,10 @@ shared pipeline component, unlike the read-only triage skills.
    the fix — pull each one's current command from that version's own
    dry-run response (`update_component_version` with `apply=false` returns
    `diff.old`, which is the live value) and apply the same *kind* of edit
-   (e.g. "insert `tumor-normal` right after the binary path") relative to
-   that version's own text, not a hardcoded find/replace string that
-   assumes every version matches latest verbatim.
+   (e.g. "insert the new required piece into the same position in the
+   command") relative to that version's own text, not a hardcoded
+   find/replace string that assumes every version matches latest
+   verbatim.
 
 4. **When the exact fix isn't fully knowable from the trigger error alone,
    construct your best effort and rank your confidence per change — don't
@@ -142,14 +143,19 @@ shared pipeline component, unlike the read-only triage skills.
    - **If the fix requires a genuinely new input** — a file or resource the
      ComponentVersion doesn't currently mount at all, not just a renamed
      flag — don't invent a real path. Instead, drop in an obvious,
-     clearly-marked placeholder (e.g. `<PATH_TO_MICROSATELLITE_SITES_TSV>`)
-     so the rest of the fix can still be built and shown in full.
-   - **If a required value is unknowable from context** (a threshold or
-     parameter that depends on domain judgement, not on the CLI's own
-     shape), do the same: drop in an obvious placeholder (e.g.
-     `<PER_SITE_THRESHOLD_VALUE>`) rather than reusing an unrelated
-     existing value just because it happens to share a similar valid
-     range.
+     clearly-marked placeholder (e.g. `<PATH_TO_NEW_INPUT_FILE>`) so the
+     rest of the fix can still be built and shown in full. Keep the
+     placeholder name generic and structural (what kind of thing is
+     missing), never named after the specific flag/domain concept from
+     whatever pipeline you're currently fixing — this file is shared
+     across every component this skill is ever run against, so no
+     customer- or pipeline-specific terminology (tool names, flag names,
+     file formats, domain vocabulary) belongs in it, examples included.
+   - **If a required value is unknowable from context** (a parameter that
+     depends on domain judgement, not on the CLI's own shape), do the
+     same: drop in an obvious, generically-named placeholder (e.g.
+     `<REQUIRED_FLAG_VALUE>`) rather than reusing an unrelated existing
+     value just because it happens to share a similar valid range.
    - **Don't stop at "I can't be sure" or pause before showing anything —
      build the complete fix with placeholders standing in for every
      unresolved piece, then ask the user to fill just those placeholders
