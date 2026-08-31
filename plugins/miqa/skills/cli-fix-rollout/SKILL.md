@@ -142,7 +142,16 @@ shared pipeline component, unlike the read-only triage skills.
      rather than grouping the old and new names into two slash-separated
      clusters (A/B/C → D/E/F) — the grouped form forces the reader to
      count positions to figure out which old flag maps to which new one,
-     while individual pairings are unambiguous at a glance. Don't phrase
+     while individual pairings are unambiguous at a glance. Keep this
+     bullet to renames/rewrites only — leave out flags that stayed
+     unchanged (the diff already shows those plainly, so restating them
+     here is redundant). If an unchanged flag is worth calling out at all
+     (e.g. because its meaning could plausibly have shifted along with
+     everything else and you want to reassure the user it didn't), put
+     that in its own separate sentence rather than tacking it onto the end
+     of the mapping list with a semicolon — mixing "renamed to" pairs and
+     "stayed the same" facts in one run-on list blurs two different kinds
+     of information together. Don't phrase
      it as "also translated directly" or similar flat assertions; the
      hedge is what tells the user this bullet is still a judgment call,
      distinct from the forced renames above it. This gives the user
