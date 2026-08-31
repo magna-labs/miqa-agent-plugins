@@ -2,7 +2,7 @@
 name: cli-fix-rollout
 description: Use whenever a Miqa Component's actual CLI invocation/command needs to change — a renamed or newly-required flag/subcommand, a stale argument, etc. — not a baseline or check-config issue. Applies equally whether the fix was identified by a prior root-cause investigation (active-triggers or otherwise) in this conversation, or the user just asks directly to fix/update a component's command with no investigation at all — the skill establishes the failing streak itself in the latter case. Rolls the fix out starting at the FIRST failing Test Chain Run in the streak (every ComponentVersion touched by that streak, not just the latest), dry-running the command edit and getting explicit permission before applying, then dry-running and applying execution retries. Trigger phrases include "fix the CLI/command", "update the component version's command", "the docker command is wrong/needs a new flag", "roll this fix out from the first failure", "retry these runs after the fix".
 metadata:
-  version: 1.1.0
+  version: 1.2.0
 ---
 
 # Miqa CLI Fix Rollout
@@ -141,26 +141,31 @@ shared pipeline component, unlike the read-only triage skills.
      to hand that off, not silence once the Component fix is applied.
    - **If the fix requires a genuinely new input** — a file or resource the
      ComponentVersion doesn't currently mount at all, not just a renamed
-     flag — don't invent a path. You'll need to ask the user whether it
-     already exists somewhere in their cloud storage and, if so, its exact
-     path/link, so it can be wired into `inputs_single` correctly. If it
-     doesn't exist yet, that's a hard blocker outside this skill's scope —
-     someone needs to produce and upload it first.
+     flag — don't invent a real path. Instead, drop in an obvious,
+     clearly-marked placeholder (e.g. `<PATH_TO_MICROSATELLITE_SITES_TSV>`)
+     so the rest of the fix can still be built and shown in full.
    - **If a required value is unknowable from context** (a threshold or
      parameter that depends on domain judgement, not on the CLI's own
-     shape), you'll need to ask the user for it directly rather than
-     reusing an unrelated existing value just because it happens to share a
-     similar valid range.
-   - **Collect every open item from the two bullets above into one
-     up-front ask, don't trickle them out one at a time.** Finish the
-     flag-by-flag pass first, then post a single consolidated request
-     naming exactly what's missing and why — e.g. "I need two things from
-     you to build this fix: (1) the path to `<file>` if it already exists
-     in your bucket, and (2) the value to use for `<parameter>`, since I
-     can't infer it from the CLI's own shape." Pause there; don't proceed
-     past step 4 with placeholders for these while waiting on a real
-     answer, and don't ask about the first missing item, get an answer,
-     then separately ask about the second.
+     shape), do the same: drop in an obvious placeholder (e.g.
+     `<PER_SITE_THRESHOLD_VALUE>`) rather than reusing an unrelated
+     existing value just because it happens to share a similar valid
+     range.
+   - **Don't stop at "I can't be sure" or pause before showing anything —
+     build the complete fix with placeholders standing in for every
+     unresolved piece, then ask the user to fill just those placeholders
+     in.** Finish the flag-by-flag pass first, then present the *whole*
+     reconstructed command and file list (per step 4's next bullet) with
+     the placeholders sitting in their real position, and close with a
+     single consolidated ask framed as "here's what I'd change — I just
+     need you to fill in `<PLACEHOLDER_1>` and `<PLACEHOLDER_2>`" (naming
+     each placeholder and, in one clause, what it's for) rather than a
+     generic list of open questions asked before any diff is shown. Don't
+     trickle the asks out one at a time either. Where it's feasible for
+     the tool to accept a placeholder without erroring (see step 5), still
+     run the dry-run with placeholders in place so the user sees the
+     server-validated diff, not just a hand-typed reconstruction — clearly
+     label that diff as containing placeholders that must be resolved
+     before it can be applied.
    - **If, even after this, the fix stays too uncertain to build with
      confidence** (several speculative flags stacked together, an unclear
      file requirement, or the user doesn't have the domain knowledge to
@@ -177,11 +182,24 @@ shared pipeline component, unlike the read-only triage skills.
 
 5. **Dry-run every version's fix before applying anything.** For each
    `(component_id, version_id)` in the set, call `update_component_version`
-   with `apply=false` and the proposed new command. Collect all the
-   diffs — do not apply the first one before you've previewed the rest;
-   present the complete before/after set for every affected version
-   together, so the user is confirming one coherent rollout, not a series
-   of one-off edits they only see after the fact.
+   with `apply=false` and the proposed new command (placeholders and all,
+   per step 4 — a placeholder that fails the tool's own validation is fine
+   to attempt anyway; report the rejection plainly and fall back to a
+   hand-written diff for that version). Collect all the diffs — do not
+   apply the first one before you've previewed the rest.
+   - **Always show the complete diff returned by the dry-run, every time,
+     for every version — never summarize it, abbreviate it, or refer back
+     to an earlier message ("as shown above") instead of reprinting it.**
+     That means the full old command string and the full new command
+     string (not just the changed flags in isolation), and, whenever
+     `inputs_single`/`resource_files` changed, the complete old array and
+     complete new array. Present the complete before/after set for every
+     affected version together, so the user is confirming one coherent
+     rollout against real diffs they can read in full, not a series of
+     one-off edits or a paraphrase they have to trust.
+   - If a diff still contains a placeholder from step 4, say so right next
+     to that diff (e.g. "contains a placeholder — needs your answer before
+     this can be applied") so it's never mistaken for an apply-ready diff.
    - **Note the classifier may throttle several dry-run calls fired back
      to back** — if a preview call is denied by the permission classifier,
      don't retry it silently or work around it; tell the user plainly
