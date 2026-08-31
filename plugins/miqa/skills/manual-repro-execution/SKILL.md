@@ -2,7 +2,7 @@
 name: manual-repro-execution
 description: Use whenever a user wants a known-bad output file (a bug repro attachment, a hand-crafted edge case, a customer-supplied sample) turned into a real Miqa execution so a check can be proven against it — not a routine pipeline run. Trigger phrases include "attach this bug's file as a manual execution", "add this repro to Miqa and test it", "create a regression test from this ticket's attachment", "upload this sample and check it against BTR-1". Creates a one-off manual-upload ComponentVersion, an execution against the right dataset, uploads the file via signed URL, verifies the relevant check against it, then wires the check into a Test Block — asking the user at every genuinely case-specific fork (which pipeline/dataset, which check to reuse, which Test Block) rather than guessing.
 metadata:
-  version: 1.0.0
+  version: 1.1.0
 ---
 
 # Manual Repro Execution
@@ -17,11 +17,11 @@ This skill calls tools named `api_create_offline_version`,
 `api_get_offline_version_options`, `api_get_pipelines`,
 `api_get_pipeline_datasets`, `api_batch_manual_executions`,
 `api_get_execution_output_signed_urls`, `api_complete_execution_output`,
-`inspect_execution_outputs`, `publish_adhoc_assertions`,
-`api_get_test_block_version`, and `api_update_test_block` on whichever Miqa
-MCP server is connected (tool names follow the pattern
-`mcp__<server-name>__<tool>`). Most setups have exactly one Miqa MCP server
-connected — just use it.
+`inspect_execution_outputs`, `api_run_adhoc_assertions`,
+`publish_adhoc_assertions`, `api_get_test_block_version`, and
+`api_update_test_block` on whichever Miqa MCP server is connected (tool
+names follow the pattern `mcp__<server-name>__<tool>`). Most setups have
+exactly one Miqa MCP server connected — just use it.
 
 **The fiddly parts are mechanical and fixed** (the signed-URL upload
 sequence, merging into an existing Test Block's assertions rather than
@@ -101,17 +101,31 @@ pipeline, dataset, or Test Block from a name pattern alone.
    downstream (the check just won't find a matching file) rather than with
    a clear error here.
 
-7. **Verify the check against the new execution, and don't rely on the UI
-   alone when you can check the math yourself.** Run the check via
-   `publish_adhoc_assertions(execution_id=..., apply=true)` and show the
-   Output Explorer link. When the check's logic is simple enough to
-   hand-verify from the file you already read in step 1 (e.g. an average
-   of a handful of visible values), compute the expected result yourself
-   and state it alongside the link — that catches a wrong column/field
-   assumption (e.g. two same-named fields at different structural levels,
-   like a VCF's INFO-level vs. FORMAT-level `DP`) that schema validation
-   can't. Ask the user to confirm what the link actually shows when you
-   can't verify it yourself.
+7. **Verify the check against the new execution by reading the actual
+   computed outcome, not just publishing and eyeballing the UI.** This
+   file is a *known-bad* repro, so the check must come back `fail` (or
+   `warn`, matching the drafted `failtype`) — a `pass` on a known-bad file
+   means the assertion is wrong, not that the bug failed to reproduce.
+   Call `api_run_adhoc_assertions(assertions, exec_ids_test=[execution_id],
+   force_recheck=true)` and read `outcome`/`status` straight out of its
+   JSON — it's synchronous and persists nothing, so there's no reason to
+   infer the result from a preview or a UI link instead. When the outcome
+   doesn't match the known-bad expectation, don't just report the
+   mismatch: a check's declarative pass/fail direction for
+   `stat {relationship} threshold` is not guaranteed the same across check
+   types (verify it from this actual response, never assume it from
+   another check type's docs or blurb), so fix the `relationship`/
+   `threshold` and re-run `api_run_adhoc_assertions` until the outcome
+   matches, before calling `publish_adhoc_assertions(apply=true)` with the
+   corrected blob. When the check's logic is simple enough to hand-verify
+   from the file you already read in step 1 (e.g. an average of a handful
+   of visible values), compute the expected result yourself and state it
+   alongside the outcome — that catches a wrong column/field assumption
+   (e.g. two same-named fields at different structural levels, like a
+   VCF's INFO-level vs. FORMAT-level `DP`) that schema validation can't.
+   If the logic is too complex to hand-verify, ask the user to confirm the
+   outcome is what they'd expect before treating it as done. Only then
+   show the Output Explorer link from `publish_adhoc_assertions`.
 
 8. **Ask where the check should live — don't assume.** If the check is
    already permanently wired into a Test Block (e.g. from a prior
