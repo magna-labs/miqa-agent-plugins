@@ -110,8 +110,10 @@ shared pipeline component, unlike the read-only triage skills.
    descriptions, and the current command's structure are usually enough to
    get most of the way there even when no one has confirmed the full fix.
    - Walk the current command flag-by-flag and classify each proposed
-     change into three tiers, and present all three together rather than
-     quietly folding guesses in as if confirmed:
+     change into three tiers internally — this classification drives what
+     gets a placeholder vs. what gets asserted as a real value, so do it
+     even though the full breakdown isn't always shown (see the next
+     bullet):
      - **High confidence** — forced by the error message itself, or an
        exact-named match against authoritative help/docs output.
      - **Medium confidence** — a plausible rename/rewrite with matching
@@ -121,16 +123,32 @@ shared pipeline component, unlike the read-only triage skills.
        retired in favor of mechanism Y). Flag these as needing real
        verification (the tool's own changelog/docs, or a person who knows
        the CLI) before anyone trusts them.
-   - **The tiered flag-by-flag breakdown explains the reasoning; it doesn't
-     replace showing the actual result.** Alongside it, always show the
-     full reconstructed command as one complete before/after string (not
-     just the individual changed flags quoted in isolation), and the full
-     updated `inputs_single`/`resource_files` array in full if any entries
+   - **Default to a condensed presentation, not the full tiered
+     table.** Skip printing the three-tier breakdown as a labeled
+     High/Medium/Speculative list by default — it reads as too much text
+     for what should be scannable at a glance. Instead, in one or two
+     short lines of prose, name the load-bearing renames and additions
+     directly (e.g. "renamed `--input`/`--normal` to `--tumor-bam`/
+     `--normal-bam` (forced by the error message)"), then let the diff
+     itself carry the rest of the detail — don't re-describe every
+     unchanged or minor flag in prose when the diff already shows it.
+     Only expand into the full tiered breakdown if the user asks for the
+     reasoning behind a specific change, pushes back on a guess, or the
+     fix has enough speculative/placeholder flags that a bare diff would
+     leave the risk illegible.
+   - **The prose never replaces showing the actual result.** Always show
+     the full reconstructed command as one complete before/after string
+     (not just the individual changed flags quoted in isolation), and the
+     full updated `inputs_single`/`resource_files` list if any entries
      were added or changed (not just the new entry by itself) — the same
      shape `update_component_version`'s own dry-run diff would show. The
      user needs to see exactly what the whole resulting command and file
      list would look like before confirming anything, not reconstruct it
-     themselves from a bullet list of deltas.
+     themselves from a bullet list of deltas. Render `inputs_single`/
+     `resource_files` as a real bullet list (`dest ← source`, one per
+     line), never as a raw JSON blob — a JSON array is harder to scan
+     than the equivalent list and adds visual noise without adding
+     information.
    - **Show the full command as a git-style diff, not inline markup.**
      Present the before/after as a ` ```diff ` fenced block: a `-` line
      with the complete old command, a `+` line with the complete new
@@ -235,17 +253,22 @@ shared pipeline component, unlike the read-only triage skills.
    to attempt anyway; report the rejection plainly and fall back to a
    hand-written diff for that version). Collect all the diffs — do not
    apply the first one before you've previewed the rest.
-   - **Always show the complete diff returned by the dry-run, every time,
-     for every version — never summarize it, abbreviate it, or refer back
-     to an earlier message ("as shown above") instead of reprinting it.**
-     Render it the same way as step 4: a ` ```diff ` fenced block with the
-     full old command on a `-` line and the full new command on a `+`
-     line (not just the changed flags in isolation), and, whenever
-     `inputs_single`/`resource_files` changed, the complete old array and
-     complete new array. Present the complete before/after set for every
-     affected version together, so the user is confirming one coherent
-     rollout against real diffs they can read in full, not a series of
-     one-off edits or a paraphrase they have to trust.
+   - **Always show the complete diff returned by the dry-run — never
+     summarize it, abbreviate it, or refer back to an earlier message
+     ("as shown above") instead of reprinting it.** Render it the same way
+     as step 4: a ` ```diff ` fenced block with the full old command on a
+     `-` line and the full new command on a `+` line (not just the changed
+     flags in isolation), and, whenever `inputs_single`/`resource_files`
+     changed, the complete old and new lists rendered as bullets
+     (`dest ← source`), not JSON. When two or more versions in the set
+     come back with byte-identical old commands (confirm this from each
+     dry-run's own `diff.old`, don't assume it), show that one diff once
+     and name every version it applies to (e.g. "identical fix applies to
+     v6031 and v6032") instead of reprinting the same block per version —
+     the user is confirming one coherent rollout, and a duplicate diff is
+     exactly the kind of extra text that buries the parts that actually
+     differ. Only repeat the full diff per version when the versions'
+     underlying commands actually differ from each other.
    - If a diff still contains a placeholder from step 4, say so right next
      to that diff (e.g. "contains a placeholder — needs your answer before
      this can be applied") so it's never mistaken for an apply-ready diff.
