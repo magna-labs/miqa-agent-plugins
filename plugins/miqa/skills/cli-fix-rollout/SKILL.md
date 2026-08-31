@@ -147,7 +147,15 @@ shared pipeline component, unlike the read-only triage skills.
      hedge is what tells the user this bullet is still a judgment call,
      distinct from the forced renames above it. This gives the user
      visibility into what was asserted as equivalent without a full table.
-     Then let the diff itself
+     Close the bullet with a short invitation to correct it (e.g. "let me
+     know if any of those look wrong") — a hedge that never invites
+     correction reads as decorative rather than a real signal that the
+     mapping could be off. Keep this invitation distinct from, and
+     separate in tone from, the concrete placeholder asks later in the
+     message: those are required answers needed to apply the fix at all,
+     this is an optional "flag it if I got something wrong" — don't let
+     the two blur into one open-ended "let me know what you think"
+     that reads as a menu of next steps. Then let the diff itself
      carry the rest of the detail — don't re-describe every unchanged flag
      in prose when the diff already shows it. This document's own guidance
      text should stick to generic, structural phrasing when describing the
