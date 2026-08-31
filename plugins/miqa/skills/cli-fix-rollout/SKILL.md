@@ -2,7 +2,7 @@
 name: cli-fix-rollout
 description: Use whenever a Miqa Component's actual CLI invocation/command needs to change — a renamed or newly-required flag/subcommand, a stale argument, etc. — not a baseline or check-config issue. Applies equally whether the fix was identified by a prior root-cause investigation (active-triggers or otherwise) in this conversation, or the user just asks directly to fix/update a component's command with no investigation at all — the skill establishes the failing streak itself in the latter case. Rolls the fix out starting at the FIRST failing Test Chain Run in the streak (every ComponentVersion touched by that streak, not just the latest), dry-running the command edit and getting explicit permission before applying, then dry-running and applying execution retries. Trigger phrases include "fix the CLI/command", "update the component version's command", "the docker command is wrong/needs a new flag", "roll this fix out from the first failure", "retry these runs after the fix".
 metadata:
-  version: 1.2.2
+  version: 1.2.3
 ---
 
 # Miqa CLI Fix Rollout
@@ -204,19 +204,25 @@ shared pipeline component, unlike the read-only triage skills.
      whether to proceed. It's fine to *also* run the placeholder dry-run
      unprompted in the same turn (per the previous bullet) — that's a
      preview, not a substitute for asking for the value.
-   - **If, even after this, the fix stays too uncertain to build with
-     confidence** (several speculative flags stacked together, an unclear
-     file requirement, or the user doesn't have the domain knowledge to
-     confirm the details on the spot) — offer the fallback: point the user
-     to that ComponentVersion's edit page in the Miqa web UI so they can
-     make the edit themselves with full knowledge of the correct command,
-     and ask them to confirm once they've saved it. Once confirmed, pull
-     that version's live command (a dry-run's `diff.old`, or
+   - **Whenever any flag lands in the Speculative tier, or any placeholder
+     exists at all, surface the web-UI fallback alongside the direct
+     value-asks — every time, not just when several are stacked together.**
+     This reuses the tiering work from earlier in this step, so it's not a
+     new judgment call: any Speculative-tier flag or placeholder in the
+     reconstructed command is itself the trigger. Point the user to that
+     ComponentVersion's edit page in the Miqa web UI as an alternative to
+     answering the placeholder asks in chat — they can make the edit
+     themselves there with full knowledge of the correct command — and ask
+     them to confirm once they've saved it. Once confirmed, pull that
+     version's live command (a dry-run's `diff.old`, or
      `get_test_trigger_template_json`) and propagate the same edit to every
      other ComponentVersion in the confirmed streak (step 2's set) rather
      than leaving the rest still broken — route those remaining versions
      through the normal dry-run-then-confirm-then-apply flow (steps 5-7)
-     like any other version, this isn't a shortcut around it.
+     like any other version, this isn't a shortcut around it. A fix with
+     every flag at High or Medium confidence and no placeholders at all
+     doesn't need this offer — don't surface it as noise on an
+     already-solid reconstruction.
 
 5. **Dry-run every version's fix before applying anything.** For each
    `(component_id, version_id)` in the set, call `update_component_version`
