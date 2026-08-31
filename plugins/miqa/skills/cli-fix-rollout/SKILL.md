@@ -127,15 +127,20 @@ shared pipeline component, unlike the read-only triage skills.
      table.** Skip printing the three-tier breakdown as a labeled
      High/Medium/Speculative list by default — it reads as too much text
      for what should be scannable at a glance. Instead, in one or two
-     short lines of prose, name the load-bearing renames and additions
-     directly (e.g. "renamed `--input`/`--normal` to `--tumor-bam`/
-     `--normal-bam` (forced by the error message)"), then let the diff
-     itself carry the rest of the detail — don't re-describe every
-     unchanged or minor flag in prose when the diff already shows it.
-     Only expand into the full tiered breakdown if the user asks for the
-     reasoning behind a specific change, pushes back on a guess, or the
-     fix has enough speculative/placeholder flags that a bare diff would
-     leave the risk illegible.
+     short lines of prose, name the load-bearing renamed/added flags from
+     the *actual* command being fixed (using their real names from that
+     pipeline, not a placeholder) and say what forced each one (e.g. "the
+     two required input flags were renamed, forced by the error message"),
+     then let the diff itself carry the rest of the detail — don't
+     re-describe every unchanged or minor flag in prose when the diff
+     already shows it. This document's own guidance text should stick to
+     generic, structural phrasing when describing the technique (as here)
+     rather than naming a specific pipeline's flags as a worked example —
+     that terminology belongs only in an actual session's fix, not in this
+     shared skill file. Only expand into the full tiered breakdown if the
+     user asks for the reasoning behind a specific change, pushes back on
+     a guess, or the fix has enough speculative/placeholder flags that a
+     bare diff would leave the risk illegible.
    - **The prose never replaces showing the actual result.** Always show
      the full reconstructed command as one complete before/after string
      (not just the individual changed flags quoted in isolation), and the
@@ -146,9 +151,10 @@ shared pipeline component, unlike the read-only triage skills.
      list would look like before confirming anything, not reconstruct it
      themselves from a bullet list of deltas. Render `inputs_single`/
      `resource_files` as a real bullet list (`dest ← source`, one per
-     line), never as a raw JSON blob — a JSON array is harder to scan
-     than the equivalent list and adds visual noise without adding
-     information.
+     line), or as pretty-printed multi-line JSON with one entry per line —
+     either is fine. What's never acceptable is dumping the array
+     jammed onto a single line: that's what actually makes it hard to
+     scan, not the JSON syntax itself.
    - **Show the full command as a git-style diff, not inline markup.**
      Present the before/after as a ` ```diff ` fenced block: a `-` line
      with the complete old command, a `+` line with the complete new
@@ -260,12 +266,12 @@ shared pipeline component, unlike the read-only triage skills.
      `-` line and the full new command on a `+` line (not just the changed
      flags in isolation), and, whenever `inputs_single`/`resource_files`
      changed, the complete old and new lists rendered as bullets
-     (`dest ← source`), not JSON. When two or more versions in the set
-     come back with byte-identical old commands (confirm this from each
-     dry-run's own `diff.old`, don't assume it), show that one diff once
-     and name every version it applies to (e.g. "identical fix applies to
-     v6031 and v6032") instead of reprinting the same block per version —
-     the user is confirming one coherent rollout, and a duplicate diff is
+     (`dest ← source`) or pretty-printed multi-line JSON — never jammed
+     onto one line. When two or more versions in the set come back with
+     byte-identical old commands (confirm this from each dry-run's own
+     `diff.old`, don't assume it), show that one diff once and name every
+     version it applies to instead of reprinting the same block per
+     version — the user is confirming one coherent rollout, and a duplicate diff is
      exactly the kind of extra text that buries the parts that actually
      differ. Only repeat the full diff per version when the versions'
      underlying commands actually differ from each other.
