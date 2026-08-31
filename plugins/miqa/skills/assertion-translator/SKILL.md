@@ -153,6 +153,23 @@ Apply this whenever the request states a threshold outcome (see below); a report
 no gate has nothing to add a `detail_display_stat` alongside, since the computed value is already
 the whole `stat`.
 
+A stated threshold outcome must actually gate — pick exactly one of two shapes, never a bare
+computed `stat` with neither:
+
+- **Declarative:** `stat` stays the raw computed value; `relationship`/`threshold`/
+  `threshold_type` do the gating (matches the vocabulary's own blurbs, e.g. `"stat": "recall",
+  "relationship": "lt", "threshold": 0.95`). No `detail_display_stat` needed — `stat` already is
+  the number.
+- **Boolean:** `stat` is the comparison itself, with `_precompute` + `detail_display_stat` as
+  above so the number doesn't disappear behind true/false.
+
+Verify which shape a given `check_type` actually uses empirically — via `api_run_adhoc_assertions`
+against a known-bad execution when one exists, per `manual-repro-execution`'s step 7 — rather than
+assuming pass/fail direction from another check type's docs or blurb; it is not guaranteed
+consistent across check types (see `relationship`'s left-to-right meaning for `tabular_mdo_eval`
+vs. `accuracy` in past experience). A bare computed `stat` with no `relationship`/`threshold` and
+no Boolean is silently report-only forever — it never fails, no matter how bad the data is.
+
 For a natural-language request, write outcome fields only when the request states a pass or fail
 condition. Preserve its meaning without making the condition stricter or weaker. When no condition
 is stated, write the computed result only.
