@@ -137,9 +137,14 @@ shared pipeline component, unlike the read-only triage skills.
      this bullet explicitly rather than asserting it as fact — these are
      inferred, not confirmed — with an opener like "From the log message,
      I believe I can translate the following directly: X → Y (same
-     range/semantics); A/B/C → D/E/F under a shared output setting." Don't
-     phrase it as "also translated directly" or similar flat assertions;
-     the hedge is what tells the user this bullet is still a judgment call,
+     range/semantics); A → D, B → E, C → F under a shared output setting."
+     List each pairing as its own individual mapping (A → D, B → E, C → F)
+     rather than grouping the old and new names into two slash-separated
+     clusters (A/B/C → D/E/F) — the grouped form forces the reader to
+     count positions to figure out which old flag maps to which new one,
+     while individual pairings are unambiguous at a glance. Don't phrase
+     it as "also translated directly" or similar flat assertions; the
+     hedge is what tells the user this bullet is still a judgment call,
      distinct from the forced renames above it. This gives the user
      visibility into what was asserted as equivalent without a full table.
      Then let the diff itself
