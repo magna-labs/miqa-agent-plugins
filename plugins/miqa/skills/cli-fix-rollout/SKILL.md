@@ -2,7 +2,7 @@
 name: cli-fix-rollout
 description: Use whenever a Miqa Component's actual CLI invocation/command needs to change — a renamed or newly-required flag/subcommand, a stale argument, etc. — not a baseline or check-config issue. Applies equally whether the fix was identified by a prior root-cause investigation (active-triggers or otherwise) in this conversation, or the user just asks directly to fix/update a component's command with no investigation at all — the skill establishes the failing streak itself in the latter case. Rolls the fix out starting at the FIRST failing Test Chain Run in the streak (every ComponentVersion touched by that streak, not just the latest), dry-running the command edit and getting explicit permission before applying, then dry-running and applying execution retries. Trigger phrases include "fix the CLI/command", "update the component version's command", "the docker command is wrong/needs a new flag", "roll this fix out from the first failure", "retry these runs after the fix".
 metadata:
-  version: 1.2.2
+  version: 1.2.3
 ---
 
 # Miqa CLI Fix Rollout
@@ -131,19 +131,23 @@ shared pipeline component, unlike the read-only triage skills.
      user needs to see exactly what the whole resulting command and file
      list would look like before confirming anything, not reconstruct it
      themselves from a bullet list of deltas.
-   - **In that full command string, visually mark whatever isn't a plain
-     carry-over** — wrap every placeholder token and every flag that's
-     new, renamed, or has a changed value in its own inline code span
-     (single backticks around just that flag+value, e.g.
-     `` `--new-required-flag <value>` ``), and leave unchanged flags in
-     plain text outside any code span. Don't use bold (`**...**`) for this —
+   - **Show the full command as a git-style diff, not inline markup.**
+     Present the before/after as a ` ```diff ` fenced block: a `-` line
+     with the complete old command, a `+` line with the complete new
+     command. This terminal renders `diff` fences with red/green
+     highlighting, so the whole changed line is legible at a glance with
+     no per-flag markup needed — including any placeholder tokens sitting
+     in the `+` line, which read as changed by virtue of being on the `+`
+     line itself. Don't wrap the command in a single fenced code block and
+     then mark individual flags with nested single backticks — backticks
+     nested inside a triple-backtick fence render as literal backtick
+     characters, not separate code spans, so it comes out as backtick
+     soup instead of a highlighted diff. Don't use bold (`**...**`) either —
      in this terminal it renders as literal asterisks around the text
      rather than actual bold, which reads worse than no marking at all.
-     A long reconstructed command is hard to audit at a glance otherwise,
-     and placeholders in particular must never blend in with real,
-     already-resolved values. Do this in every place the command is shown
-     (the initial reconstruction, each dry-run diff's new string) — not
-     just once up front.
+     Do this in every place the command is shown (the initial
+     reconstruction, each dry-run diff's old/new pair) — not just once up
+     front.
    - If a speculative change would also alter a downstream artifact's shape
      (e.g. an output file's format or extension), say so explicitly — that
      usually means a follow-up Test Block/check edit is needed too, not
@@ -234,8 +238,9 @@ shared pipeline component, unlike the read-only triage skills.
    - **Always show the complete diff returned by the dry-run, every time,
      for every version — never summarize it, abbreviate it, or refer back
      to an earlier message ("as shown above") instead of reprinting it.**
-     That means the full old command string and the full new command
-     string (not just the changed flags in isolation), and, whenever
+     Render it the same way as step 4: a ` ```diff ` fenced block with the
+     full old command on a `-` line and the full new command on a `+`
+     line (not just the changed flags in isolation), and, whenever
      `inputs_single`/`resource_files` changed, the complete old array and
      complete new array. Present the complete before/after set for every
      affected version together, so the user is confirming one coherent
