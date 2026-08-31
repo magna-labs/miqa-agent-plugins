@@ -2,7 +2,7 @@
 name: cli-fix-rollout
 description: Use whenever a Miqa Component's actual CLI invocation/command needs to change — a renamed or newly-required flag/subcommand, a stale argument, etc. — not a baseline or check-config issue. Applies equally whether the fix was identified by a prior root-cause investigation (active-triggers or otherwise) in this conversation, or the user just asks directly to fix/update a component's command with no investigation at all — the skill establishes the failing streak itself in the latter case. Rolls the fix out starting at the FIRST failing Test Chain Run in the streak (every ComponentVersion touched by that streak, not just the latest), dry-running the command edit and getting explicit permission before applying, then dry-running and applying execution retries. Trigger phrases include "fix the CLI/command", "update the component version's command", "the docker command is wrong/needs a new flag", "roll this fix out from the first failure", "retry these runs after the fix".
 metadata:
-  version: 1.2.1
+  version: 1.2.4
 ---
 
 # Miqa CLI Fix Rollout
@@ -131,6 +131,19 @@ shared pipeline component, unlike the read-only triage skills.
      user needs to see exactly what the whole resulting command and file
      list would look like before confirming anything, not reconstruct it
      themselves from a bullet list of deltas.
+   - **In that full command string, visually mark whatever isn't a plain
+     carry-over** — wrap every placeholder token and every flag that's
+     new, renamed, or has a changed value in its own inline code span
+     (single backticks around just that flag+value, e.g.
+     `` `--tumor-bam /workdir/$bamNAME` ``), and leave unchanged flags in
+     plain text outside any code span. Don't use bold (`**...**`) for this —
+     in this terminal it renders as literal asterisks around the text
+     rather than actual bold, which reads worse than no marking at all.
+     A long reconstructed command is hard to audit at a glance otherwise,
+     and placeholders in particular must never blend in with real,
+     already-resolved values. Do this in every place the command is shown
+     (the initial reconstruction, each dry-run diff's new string) — not
+     just once up front.
    - If a speculative change would also alter a downstream artifact's shape
      (e.g. an output file's format or extension), say so explicitly — that
      usually means a follow-up Test Block/check edit is needed too, not
@@ -139,7 +152,13 @@ shared pipeline component, unlike the read-only triage skills.
      directly whether they want that check updated too (naming the
      specific check by name) — this skill doesn't edit Test
      Block/check config itself, so the honest close is an explicit offer
-     to hand that off, not silence once the Component fix is applied.
+     to hand that off, not silence once the Component fix is applied. State
+     that offer to help the moment you flag the downstream impact here in
+     step 4, not only when step 9 actually comes around — the user should
+     never read a flagged downstream break as a dangling open question with
+     no owner; say plainly that once the Component fix and the open
+     placeholders/questions above are resolved, you'll help update that
+     check too (real fix or the interim fail→warn downgrade — see step 9).
    - **If the fix requires a genuinely new input** — a file or resource the
      ComponentVersion doesn't currently mount at all, not just a renamed
      flag — don't invent a real path. Instead, drop in an obvious,
@@ -172,6 +191,19 @@ shared pipeline component, unlike the read-only triage skills.
      server-validated diff, not just a hand-typed reconstruction — clearly
      label that diff as containing placeholders that must be resolved
      before it can be applied.
+   - **The consolidated ask must request the actual answer, not a menu of
+     next steps.** Don't close with an open-ended "want me to dry-run this,
+     or hold off until you've confirmed the values?" — that hands the
+     concrete asks back to the user as homework instead of just asking for
+     them. Name each placeholder and ask for its real value directly, in
+     the same message that shows the diff: for a `<PATH_TO_NEW_INPUT_FILE>`
+     placeholder specifically, ask for the actual cloud/object-storage path
+     (e.g. an S3/GCS URI) the way the rest of that ComponentVersion's
+     `inputs_single` entries already reference their sources — that's the
+     concrete thing needed to make the fix real, not a decision about
+     whether to proceed. It's fine to *also* run the placeholder dry-run
+     unprompted in the same turn (per the previous bullet) — that's a
+     preview, not a substitute for asking for the value.
    - **If, even after this, the fix stays too uncertain to build with
      confidence** (several speculative flags stacked together, an unclear
      file requirement, or the user doesn't have the domain knowledge to
