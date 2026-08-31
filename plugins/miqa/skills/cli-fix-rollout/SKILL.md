@@ -136,7 +136,7 @@ shared pipeline component, unlike the read-only triage skills.
      that aren't forced by the error but also aren't placeholders. Hedge
      this bullet explicitly rather than asserting it as fact — these are
      inferred, not confirmed — with an opener like "From the log message,
-     I believe I can translate the following directly: X → Y (same
+     I think I can translate the following directly: X → Y (same
      range/semantics); A → D, B → E, C → F under a shared output setting."
      List each pairing as its own individual mapping (A → D, B → E, C → F)
      rather than grouping the old and new names into two slash-separated
