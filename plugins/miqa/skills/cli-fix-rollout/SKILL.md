@@ -1,6 +1,6 @@
 ---
 name: cli-fix-rollout
-description: Use when a Miqa root-cause investigation (active-triggers or otherwise) has identified that a Component's actual CLI invocation/command needs to change — a renamed or newly-required flag/subcommand, a stale argument, etc. — not a baseline or check-config issue. Rolls the fix out starting at the FIRST failing Test Chain Run in the streak (every ComponentVersion touched by that streak, not just the latest), dry-running the command edit and getting explicit permission before applying, then dry-running and applying execution retries. Trigger phrases include "fix the CLI/command", "update the component version's command", "roll this fix out from the first failure", "retry these runs after the fix".
+description: Use whenever a Miqa Component's actual CLI invocation/command needs to change — a renamed or newly-required flag/subcommand, a stale argument, etc. — not a baseline or check-config issue. Applies equally whether the fix was identified by a prior root-cause investigation (active-triggers or otherwise) in this conversation, or the user just asks directly to fix/update a component's command with no investigation at all — the skill establishes the failing streak itself in the latter case. Rolls the fix out starting at the FIRST failing Test Chain Run in the streak (every ComponentVersion touched by that streak, not just the latest), dry-running the command edit and getting explicit permission before applying, then dry-running and applying execution retries. Trigger phrases include "fix the CLI/command", "update the component version's command", "the docker command is wrong/needs a new flag", "roll this fix out from the first failure", "retry these runs after the fix".
 metadata:
   version: 1.0.0
 ---
@@ -23,26 +23,43 @@ This skill calls tools named `list_component_versions_for_test_chain_run`,
 (tool names follow the pattern `mcp__<server-name>__<tool>`). Most setups
 have exactly one Miqa MCP server connected — just use it.
 
-**Only enter this flow when a command/CLI-level fix has already been
-identified as the remedy** — by a prior root-cause (e.g. `active-triggers`
-concluding "real product regression" with a quoted CLI error) or by the
-user directly. Never trigger this off a routine sweep on your own
-initiative; it mutates a shared pipeline component, unlike the read-only
-triage skills.
+**Only enter this flow when a command/CLI-level fix is the remedy** — a
+renamed/missing flag or subcommand, a stale argument. That determination
+can come from a prior root-cause in this conversation (e.g. `active-triggers`
+concluding "real product regression" with a quoted CLI error), or the user
+can simply ask directly ("the msi_caller command needs a subcommand now",
+"update this component's docker command") with no investigation having
+happened at all — both are equally valid entry points, see step 1. Never
+trigger this off a routine sweep on your own initiative; it mutates a
+shared pipeline component, unlike the read-only triage skills.
 
 ## Procedure
 
-1. **Establish the failing streak and its boundary.** You need the exact
-   first failing TCR, not just "currently failing." If this follows an
-   `active-triggers` investigation in the same conversation, reuse the
-   boundary run it already found. Otherwise, call
-   `list_test_chain_runs_for_trigger(trigger_id, limit=30)` yourself and
-   walk newest→oldest to find the first run (oldest) that shows the same
-   failure signature as the current one — confirm via
-   `get_test_chain_run_environment` on both ends that the crash/error
-   message actually matches (a long failing streak can silently change
-   *why* it's failing partway through; don't assume uniformity). Never
-   guess the boundary from a version name or docker tag pattern alone.
+1. **Establish the failing streak and its boundary — running the
+   investigation yourself if none already happened.** You need the exact
+   first failing TCR, not just "currently failing."
+   - **If this follows a root-cause investigation already in the
+     conversation** (e.g. `active-triggers`), reuse the boundary run it
+     already found rather than redoing the work.
+   - **If the user is asking directly, with no prior investigation** —
+     resolve their trigger/component/TCR reference first (via
+     `list_test_triggers`, `list_test_chain_runs_for_trigger`, or
+     `find_test_chain_runs_by_chain_name` — never guess an id from a bare
+     name), then call `list_test_chain_runs_for_trigger(trigger_id, limit=30)`
+     yourself and walk newest→oldest to find the first run (oldest) that
+     shows the same failure signature as the current one. Confirm via
+     `get_test_chain_run_environment` on both ends that the crash/error
+     message actually matches (a long failing streak can silently change
+     *why* it's failing partway through; don't assume uniformity). This is
+     a first-class path, not a fallback — treat it with the same rigor as
+     reusing an existing investigation.
+   - **If the user wants a command change with no associated failure at
+     all** (e.g. a proactive flag addition, nothing is currently broken),
+     there is no streak to walk — confirm with the user which single
+     version(s) they mean to target (typically just the latest), skip the
+     streak/boundary logic, and proceed to step 3 for that version alone.
+   - Never guess the boundary from a version name or docker tag pattern
+     alone, in any of these cases.
 
 2. **Collect every ComponentVersion touched across the streak — not just
    the latest.** Call `list_component_versions_for_test_chain_run(run_id)`
