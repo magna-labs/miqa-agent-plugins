@@ -2,7 +2,7 @@
 name: cli-fix-rollout
 description: Use whenever a Miqa Component's actual CLI invocation/command needs to change — a renamed or newly-required flag/subcommand, a stale argument, etc. — not a baseline or check-config issue. Applies equally whether the fix was identified by a prior root-cause investigation (active-triggers or otherwise) in this conversation, or the user just asks directly to fix/update a component's command with no investigation at all — the skill establishes the failing streak itself in the latter case. Rolls the fix out starting at the FIRST failing Test Chain Run in the streak (every ComponentVersion touched by that streak, not just the latest), dry-running the command edit and getting explicit permission before applying, then dry-running and applying execution retries. Trigger phrases include "fix the CLI/command", "update the component version's command", "the docker command is wrong/needs a new flag", "roll this fix out from the first failure", "retry these runs after the fix".
 metadata:
-  version: 1.2.4
+  version: 1.2.5
 ---
 
 # Miqa CLI Fix Rollout
@@ -22,6 +22,15 @@ This skill calls tools named `list_component_versions_for_test_chain_run`,
 `retry_test_chain_run_executions` on whichever Miqa MCP server is connected
 (tool names follow the pattern `mcp__<server-name>__<tool>`). Most setups
 have exactly one Miqa MCP server connected — just use it.
+
+Derive the Miqa web UI host once, up front, the same way the
+`active-triggers` skill does: read the `MIQA_SERVER_URL` env var backing the
+connected Miqa MCP server (e.g. a one-off `echo $MIQA_SERVER_URL`). If it
+matches `api.<env>.miqa.io` (starts with `api.`, ends with `.miqa.io`), the
+web host is `<env>.miqa.io` — strip the leading `api.`. If it doesn't match
+that shape (a raw gateway/Zuplo-style host with no `.miqa.io` suffix), don't
+guess a web host at all, and skip the link in step 4's web-UI fallback
+(describe the fallback without a URL instead).
 
 **Only enter this flow when a command/CLI-level fix is the remedy** — a
 renamed/missing flag or subcommand, a stale argument. That determination
@@ -75,19 +84,27 @@ shared pipeline component, unlike the read-only triage skills.
    *which versions* are in scope at all, that one decides *how* the
    confirmed versions get patched.
 
-2. **Collect every ComponentVersion touched across the confirmed range —
-   not just the latest.** Call `list_component_versions_for_test_chain_run(run_id)`
-   for the boundary TCR the user confirmed in step 1 AND the latest failing
-   TCR at minimum; if the range spans more than two builds, sample the ones
-   in between too
-   (docker tags/versions typically change every run in an active pipeline).
-   Build the set of unique `(component_id, component_version_id)` pairs
-   from these results — use those exact IDs, never match by display name
-   (the tool's own docs warn against this; display names collide across
-   versions). If different runs in the streak resolve to the *same*
-   component but different `component_version_id`s, every one of those IDs
-   needs the fix independently — Miqa does not retroactively propagate an
-   edit to older version records.
+2. **Start from just the first failing ComponentVersion — don't collect the
+   whole set up front.** Call `list_component_versions_for_test_chain_run(run_id)`
+   for the boundary TCR the user confirmed in step 1 only, and use the exact
+   `(component_id, component_version_id)` pair from that result — never
+   match by display name (the tool's own docs warn against this; display
+   names collide across versions). Build and dry-run the fix (steps 3-5)
+   against this one version first, so the reconstruction is validated before
+   spending any calls on the rest of the range.
+
+   Once the user has confirmed that first version's diff, walk forward
+   through the rest of the confirmed range one TCR at a time: call
+   `list_component_versions_for_test_chain_run` for each subsequent TCR
+   (sampling is fine across a long range, but never skip a TCR without
+   checking whether it maps to a `component_version_id` you've already
+   handled), then dry-run and apply the same *kind* of edit to each new
+   `(component_id, component_version_id)` pair — per step 5's dry-run and
+   step 7's apply — before moving to the next. If different runs in the
+   streak resolve to the *same* component but different
+   `component_version_id`s, every one of those IDs needs the fix
+   independently — Miqa does not retroactively propagate an edit to older
+   version records.
 
 3. **Get the exact current command per version, don't reuse one string
    across all of them.** Call `get_test_trigger_template_json(trigger_id)`
@@ -278,8 +295,11 @@ shared pipeline component, unlike the read-only triage skills.
      reconstructed command is itself the trigger. Point the user to that
      ComponentVersion's edit page in the Miqa web UI as an alternative to
      answering the placeholder asks in chat — they can make the edit
-     themselves there with full knowledge of the correct command — and ask
-     them to confirm once they've saved it. Once confirmed, pull that
+     themselves there with full knowledge of the correct command. When a
+     web host was derived up front, give the actual link:
+     `{web_host}/edit_component_version/{component_version_id}` (plain
+     text is fine if no web host could be derived — never fabricate one) —
+     and ask them to confirm once they've saved it. Once confirmed, pull that
      version's live command (a dry-run's `diff.old`, or
      `get_test_trigger_template_json`) and propagate the same edit to every
      other ComponentVersion in the confirmed streak (step 2's set) rather
