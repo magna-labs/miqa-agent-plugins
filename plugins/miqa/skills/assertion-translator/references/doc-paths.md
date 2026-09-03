@@ -1,38 +1,37 @@
-# MIQA guidance paths
+# Miqa guidance search topics
 
-Load only the pages needed for the translation from `$MIQA_DOCS_BASE_URL/<path>`. If
-`MIQA_DOCS_BASE_URL` is not set, ask the user to set it and stop. Keep the base URL and its share
-credential out of the skill.
+Search only the topics needed for the translation, then read the best matching pages with the
+mounted documentation tools.
 
-| Question | Path |
-| --- | --- |
-| Core assertion fields and check type selection | `building-tests/writing-assertions/overview.md` |
-| How stat, query, relationship, and static decide results | `building-tests/writing-assertions/assertion-syntax.md` |
-| Dataset scope, workflow scope, and debug overrides | `building-tests/writing-assertions/advanced-assertion-parameters.md` |
-| File pattern and antipattern matching | `building-tests/writing-assertions/common-parameters/file-based-test-parameters.md` |
-| Tabular parsing parameters | `building-tests/writing-assertions/common-parameters/common-file-parsing-and-tabular-parameters.md` |
-| Expression-based checks and shared fields | `building-tests/writing-assertions/assertion-categories/expression-based-tests.md` |
-| Check types by data shape | `building-tests/writing-assertions/assertion-categories/assertion-categories-by-data-type.md` |
-| Declarative and comparative methods | `building-tests/writing-assertions/assertion-categories/assertion-categories-by-method.md` |
-| Rename, cast, map, drop, and filter transforms | `building-tests/writing-assertions/advanced-methods/transforms-reshaping-and-filtering-tabular-data.md` |
-| Chart type and chart value shapes | `building-tests/writing-assertions/advanced-methods/adding-visual-charts-with-chart_config.md` |
-| Column-specific flex comparison conditions | `building-tests/writing-assertions/advanced-methods/conditions-advanced-comparison-logic.md` |
-| Multi-file stat reshaping and comparison | `building-tests/writing-assertions/advanced-methods/multi-file-query-multi_file_query.md` |
-| JSON and MDO path rules with tolerance | `building-tests/writing-assertions/advanced-methods/rules-configuration-for-json-based-comparisons.md` |
-| Aggregate stats across files | `building-tests/writing-assertions/advanced-methods/aggregate-expression-based-tests.md` |
-| MDO concepts and supported check types | `building-tests/writing-assertions/structured-data-and-queries/working-with-mdo.md` |
-| Tabular `data.rows` operations | `building-tests/writing-assertions/structured-data-and-queries/working-with-tabular-mdos.md` |
-| File collection expressions | `building-tests/writing-assertions/structured-data-and-queries/working-with-filecollection-objects.md` |
-| File structure summary fields | `building-tests/writing-assertions/structured-data-and-queries/working-with-filestructure-objects.md` |
-| Quick tabular columns and preview | `building-tests/writing-assertions/structured-data-and-queries/dotdict-convenience-functions.md` |
-| Two-list precision, recall, F1, and Jaccard | `building-tests/writing-assertions/structured-data-and-queries/analyzers/match.md` |
-| Agreement across three or more lists | `building-tests/writing-assertions/structured-data-and-queries/analyzers/overlap.md` |
-| Record fields and field existence | `building-tests/writing-assertions/structured-data-and-queries/miqa-data-structures/working-with-records.md` |
-| Filter, group, map, and select rows | `building-tests/writing-assertions/structured-data-and-queries/miqa-data-structures/working-with-recordlists.md` |
-| Match and compare record lists | `building-tests/writing-assertions/structured-data-and-queries/miqa-data-structures/working-with-recordlists/comparing-recordlists.md` |
-| Frequency results | `building-tests/writing-assertions/structured-data-and-queries/miqa-data-structures/working-with-frequencies.md` |
-| Single numeric value operations | `building-tests/writing-assertions/structured-data-and-queries/miqa-data-structures/numeric-field-validations-miqanum.md` |
-| Numeric list statistics | `building-tests/writing-assertions/structured-data-and-queries/miqa-data-structures/working-with-miqanumlist.md` |
-| String-list membership, overlap, and patterns | `building-tests/writing-assertions/structured-data-and-queries/miqa-data-structures/working-with-miqastringlist.md` |
-| Single-string validation and parsing | `building-tests/writing-assertions/structured-data-and-queries/miqa-data-structures/string-based-validations-miqastring.md` |
-| Paired tabular MDO evaluation | `building-tests/assertion-types/tabular-files/paired-tabular-mdo-eval.md` |
+| Question |
+| --- |
+| What are the core assertion fields and how do I select a check type? |
+| How do stat, query, relationship, and static decide results? |
+| How do dataset scope, workflow scope, and debug overrides work? |
+| How do file patterns and antipatterns match files? |
+| Which tabular parsing parameters are supported? |
+| What expression-based checks and shared fields are supported? |
+| Which check types fit each data shape? |
+| How do declarative and comparative assertion methods work? |
+| How do I rename, cast, map, drop, and filter tabular data? |
+| What chart types and chart value shapes are supported? |
+| How do column-specific flexible comparison conditions work? |
+| How do I reshape and compare stats across multiple files? |
+| How do JSON and MDO comparison rules handle tolerance? |
+| How do I aggregate expression-based stats across files? |
+| What MDO concepts and check types are supported? |
+| What operations are supported on tabular data rows? |
+| How do file collection expressions work? |
+| What file structure summary fields are available? |
+| How do I inspect tabular columns and preview data? |
+| How do two-list precision, recall, F1, and Jaccard analyzers work? |
+| How do I measure agreement across three or more lists? |
+| How do I inspect record fields and field existence? |
+| How do I filter, group, map, and select record-list rows? |
+| How do I match and compare record lists? |
+| How do frequency results work? |
+| What operations are supported on a single numeric value? |
+| What statistics are supported on numeric lists? |
+| How do string-list membership, overlap, and pattern checks work? |
+| How do I validate and parse a single string? |
+| How does paired tabular MDO evaluation work? |

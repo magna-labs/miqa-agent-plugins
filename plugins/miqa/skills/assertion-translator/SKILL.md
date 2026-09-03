@@ -35,11 +35,10 @@ the request hasn't already decided, it never overrides what the user actually as
    single-execution requests — take the first-named execution as baseline and the second as test
    unless the request states otherwise, and call `inspect_execution_outputs` on both before writing
    any check.
-2. Resolve the MIQA guidance from `$MIQA_DOCS_BASE_URL/<path>`, using
-   `references/doc-paths.md`. If `MIQA_DOCS_BASE_URL` is not set, call the MCP
-   `get_documentation_url` tool and use its `docs_url` as the base in its place if it returns one.
-   If that tool is unavailable or returns a null `docs_url`, ask the user to set
-   `MIQA_DOCS_BASE_URL` and stop without writing a blob. Never translate the DSL from memory.
+2. Resolve the Miqa guidance with the mounted `docs_` tools. For each needed topic in
+   `references/doc-paths.md`, call `docs_searchDocumentation` and read the best hit with
+   `docs_getPage` before translating. If no `docs_` tool is available, stop without writing a blob
+   and state that the deployment reports no documentation root. Never translate the DSL from memory.
 3. Call `get_output_explorer_vocabulary()` once and save its payload. Use it for the schema, enum
    values, starter blurbs, and global variable names. If the tool or a vocabulary section is
    unavailable, continue where possible and record the validation that cannot run. Never hardcode
@@ -186,7 +185,7 @@ says not to tag.
 
 ## Coverage report
 
-Before marking a behavior `dropped`, check the analyzer and chart paths in
+Before marking a behavior `dropped`, check the analyzer and chart search topics in
 `references/doc-paths.md` and the mappings in `references/patterns.md`.
 
 Use exactly this compact format:
@@ -281,4 +280,4 @@ record.
 
 - `references/patterns.md`: structural rules, granularity rules, and worked examples
 - `references/variables-and-precompute.md`: variable, extension, and precompute resolution
-- `references/doc-paths.md`: paths for targeted MIQA guidance
+- `references/doc-paths.md`: search topics for targeted Miqa guidance
