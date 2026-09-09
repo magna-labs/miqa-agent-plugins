@@ -2,7 +2,7 @@
 name: active-triggers
 description: Use when the user asks "what's going on with my [most] active test triggers", "miqa trigger status", "why are my miqa triggers failing", or otherwise wants a status + root-cause sweep across Miqa test triggers (via a connected Miqa MCP server). Produces a fast pass/fail table first, then root-causes what's currently broken and offers to dig into anything that already recovered. For "show me all results for version/docker tag X" instead, see the sibling `version-rollup` skill.
 metadata:
-  version: 1.12.0
+  version: 1.13.0
 ---
 
 # Miqa Active Trigger Triage
@@ -345,11 +345,23 @@ the sweep, rather than guessing from the server name.
      same way. `inspect_execution_outputs` can't fill the gap either: by
      design it returns only column headers/types, never actual data
      values. Don't silently drop or skip such a check because "there's
-     nothing to show" — report the coarser diff you did see and say
-     explicitly that the specific differing field/metric isn't
-     retrievable through the connected tools, so a human would need to
-     open the actual output file (e.g. via the Miqa web UI) to identify
-     it.
+     nothing to show" — first check whether the failing assertion's
+     sample detail carries a `checked_files` entry with a `bucket`/`key`
+     (and an `exec_id`) for the baseline and/or test file. If it does,
+     call `api_get_signed_url` for each side and pull the actual file
+     content yourself (e.g. a plain download to a scratch path) to
+     compare directly — this is often the only way to see the real
+     mechanism (a renamed/added column, a reordered row, a genuinely
+     different value) rather than guessing one from an aggregate
+     percentage or a downstream error string. Don't present a guessed
+     mechanism inferred from an error message as confirmed when the
+     underlying file was pullable and never actually checked. Only when
+     `checked_files`/`bucket`+`key` isn't present, or the file is
+     impractically large to diff by hand, fall back to reporting the
+     coarser diff you did see and saying explicitly that the specific
+     differing field/metric isn't retrievable through the connected
+     tools, so a human would need to open the actual output file (e.g.
+     via the Miqa web UI) to identify it.
    - **WARN-status checks are a different severity from FAIL, not a
      different category of "ignore."** When pulling `get_test_chain_run_results`
      for the run being root-caused, note any `check_status: "WARN"` entries
