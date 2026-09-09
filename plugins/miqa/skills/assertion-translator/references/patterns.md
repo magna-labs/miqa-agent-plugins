@@ -1,7 +1,7 @@
 # Translation patterns
 
 Use these examples for translation shape. Confirm exact calls, argument order, and comparator names
-against the applicable path in `doc-paths.md`.
+against the applicable search topic in `doc-paths.md`.
 
 ## Top-level group keys must be the check_type
 

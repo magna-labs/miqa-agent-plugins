@@ -59,15 +59,12 @@ reads; it never calls anything that writes or publishes.
    `get_output_explorer_vocabulary()` once and keep its payload for the rest of
    the pass. Use it to confirm what each `check_type` and comparison operator
    actually means — never explain one from memory. If a `check_type` or field
-   in the payload isn't covered by the vocabulary call, check the Miqa docs via
-   `$MIQA_DOCS_BASE_URL/<path>` using the path table in
-   `../assertion-translator/references/doc-paths.md` (same base-URL resolution
-   rule as that skill: if `MIQA_DOCS_BASE_URL` isn't set, say so and explain
-   what you can from structure alone rather than stopping entirely — explaining
-   is lower-stakes than publishing, so a partial answer with an explicit gap is
-   fine here). If neither source resolves it, say plainly that this check
-   type/field is unconfirmed rather than inventing a plausible-sounding
-   explanation.
+   in the payload isn't covered by the vocabulary call, use the search-topic list in
+   `../assertion-translator/references/doc-paths.md`: search the needed topic with
+   `docs_searchDocumentation`, then read the best hit with `docs_getPage`. If no `docs_` tool is
+   available, continue with a partial explanation and state that the deployment reports no
+   documentation root. If neither source resolves it, say plainly that this check type/field is
+   unconfirmed rather than inventing a plausible-sounding explanation.
 
 3. **Resolve templating before interpreting semantics.** Assertions blobs
    commonly use `_extends`/`_variables`/`_precompute` to define a check once and
@@ -142,7 +139,7 @@ reads; it never calls anything that writes or publishes.
 ## Notes
 
 - Every claim about what a `check_type` or operator means traces back to
-  `get_output_explorer_vocabulary()` or a cited Miqa doc path — never explain
+  `get_output_explorer_vocabulary()` or a page read with the mounted docs tools — never explain
   DSL semantics from memory, same rule `assertion-translator` follows in the
   translate direction.
 - Resolve `_extends`/`_variables`/`_precompute` before explaining, always. An
