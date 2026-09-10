@@ -10,6 +10,12 @@
       "source": "./plugins/miqa",
       "description": "Miqa MCP server integration and agent skills",
       "version": "0.7.9"
+    },
+    {
+      "name": "miqa-remote",
+      "source": "./plugins/miqa-remote",
+      "description": "Hosted Miqa MCP server over HTTP, same agent skills",
+      "version": "0.7.9"
     }
   ]
 }
