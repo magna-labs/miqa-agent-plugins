@@ -2,7 +2,7 @@
 name: active-triggers
 description: Use when the user asks "what's going on with my [most] active test triggers", "miqa trigger status", "why are my miqa triggers failing", or otherwise wants a status + root-cause sweep across Miqa test triggers (via a connected Miqa MCP server). Produces a fast pass/fail table first, then root-causes what's currently broken and offers to dig into anything that already recovered. For "show me all results for version/docker tag X" instead, see the sibling `version-rollup` skill.
 metadata:
-  version: 1.13.0
+  version: 1.14.0
 ---
 
 # Miqa Active Trigger Triage
@@ -138,6 +138,35 @@ the sweep, rather than guessing from the server name.
    failing" trigger still goes straight to step 4 automatically like any
    other currently-broken trigger — the Note there is extra context, not
    a reason to hold off.
+
+   **If the user asks to post this table to Slack** (a channel, a DM, or as
+   part of a scheduled routine), don't reuse the terminal's plain-text-only
+   rule from above — it exists to dodge a specific terminal-renderer bug
+   (see step 6's note on that), which doesn't apply here. The Slack
+   send-message tool renders standard markdown natively, including tables
+   and links, so this delivery mode is closer to the artifact's model than
+   the terminal's:
+   - Resolve the target channel first with the Slack search-channels tool
+     (strip a leading `#`); if more than one channel matches the given
+     name, ask which one rather than guessing. If no Slack tools are
+     connected, or the channel can't be resolved, stop and say exactly
+     what failed rather than guessing a channel ID.
+   - Send the same three-column table as real markdown
+     (`| Trigger | Status | Note |`), but link the trigger name to
+     `{web_host}/test_trigger/{trigger_id}` and each `TCR NNNNN` citation to
+     `{web_host}/test_chain_run/{tcr_id}`, using standard `[text](url)`
+     links — only when step 1 derived a web host; otherwise fall back to
+     the terminal table's plain-text form.
+   - Lead the message with one line naming the sweep, org, and date window
+     (e.g. "*Miqa Active Trigger Status* — org: {org_name} (id {org_id}),
+     window: last 14 days ({start} → {end})") so the post stands alone
+     without needing the surrounding conversation for context.
+   - After sending, report the message link back as confirmation.
+   - The same approach applies if the user instead (or additionally) wants
+     step 6's deep-dive table posted to Slack — same channel-resolution and
+     linking rules. The artifact remains the better venue for anything
+     needing the full root-cause case-card detail; Slack suits the compact
+     table form.
 
 4. **Root-cause every active trigger that's currently broken — automatically,
    without asking.** A 🔴 trigger, or a 🔵 (incomplete/Started, not yet
