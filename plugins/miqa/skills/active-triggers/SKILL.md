@@ -2,7 +2,7 @@
 name: active-triggers
 description: Use when the user asks "what's going on with my [most] active test triggers", "miqa trigger status", "why are my miqa triggers failing", or otherwise wants a status + root-cause sweep across Miqa test triggers (via a connected Miqa MCP server). Produces a fast pass/fail table first, then root-causes what's currently broken and offers to dig into anything that already recovered. Also covers "scheduled-check mode" for a recurring routine invocation — see that section for the policy a thin routine config should defer to. For "show me all results for version/docker tag X" instead, see the sibling `version-rollup` skill.
 metadata:
-  version: 1.16.0
+  version: 1.17.0
 ---
 
 # Miqa Active Trigger Triage
@@ -661,29 +661,67 @@ is never skipped or gated.
 **Root-cause gating (step 4) — the one behavior that differs from an
 interactive run.** Scoped to 🔴 failures only — see the 🔵 note just
 below for why stalled/incomplete triggers are handled separately and
-never folded into this gate. Default depth is **gated**: only
-auto-root-cause a 🔴 trigger whose step 2 pattern shows an actual pass→
-fail transition within the pulled window ("newly failing"). Skip
-auto-root-causing a 🔴 trigger that's monotonic-fail across the whole
-pulled window: no visible transition means it was very likely already
-caught and reported by an earlier firing of this same routine, and
-re-running the full step 4 investigation (multiple round trips, large
-per-check payloads, sometimes signed-file downloads) on every firing
-just to re-confirm an already-known failure isn't worth the cost. For a
-gated-out chronic 🔴, note it in the status table's Note column as
-"still failing, no new pattern change since last check" rather than
-giving it a Root cause cell — don't silently drop the row.
-- This gate is a heuristic based on what's visible in the pulled window,
-  not real cross-firing memory — a chronic failure that's actually
-  changed root cause mid-streak (see step 4's note on this) will only get
-  caught by a human running the interactive sweep, or by explicitly
-  requesting full depth (below).
-- If the routine config names a different depth, follow that instead:
-  **none** (status table only, no auto root-causing at all this firing)
-  or **full** (root-cause every 🔴 every firing, same as the interactive
-  default's regression/baseline/threshold-noise bucketing — highest
-  cost, and nothing catches a bucket misclassification before it
-  posts). Depth only ever governs 🔴 handling — see below for 🔵.
+never folded into this gate. Depth controls two independent things:
+*which* 🔴 triggers get investigated this firing, and *how deep* that
+investigation goes.
+
+- **`none`** — status table only, no investigation of any 🔴 this
+  firing.
+- **`gated` (default)** — investigate only a 🔴 trigger whose step 2
+  pattern shows an actual pass→fail transition within the pulled window
+  ("newly failing"). Skip a 🔴 that's monotonic-fail across the whole
+  pulled window: no visible transition means it was very likely already
+  caught and reported by an earlier firing of this same routine, and
+  re-investigating it every firing just to re-confirm an already-known
+  failure isn't worth the cost. For a gated-out chronic 🔴, note it in
+  the status table's Note column as "still failing, no new pattern
+  change since last check" rather than giving it a Root cause cell —
+  don't silently drop the row. Whatever *does* get investigated under
+  `gated` gets the **shallow diagnosis** below, not the full step 4
+  pipeline — that's what keeps this depth cheap.
+- **`full`** — investigate every 🔴 every firing with the complete step
+  4 investigation, same as the interactive default's
+  regression/baseline/threshold-noise bucketing — highest cost, and
+  nothing catches a bucket misclassification before it posts.
+
+This gate is a heuristic based on what's visible in the pulled window,
+not real cross-firing memory — a chronic failure that's actually
+changed root cause mid-streak (see step 4's note on this) will only get
+caught by a human running the interactive sweep, or by explicitly
+requesting `full` depth. Depth only ever governs 🔴 handling — see below
+for 🔵.
+
+**Shallow diagnosis — `gated` depth's actual investigation, much
+cheaper than step 4's full pipeline.** For each newly-failing 🔴 the
+gate selects, make exactly two calls instead of the full step 4
+sequence:
+1. `get_test_chain_run_results` on the latest failing run — gives the
+   failing `check_name`(s) without pulling per-check diff detail.
+2. `get_test_chain_run_environment` on that same run only (no boundary
+   pair, no earliest-vs-latest comparison) — gives whether the baseline
+   pointer/version changed versus what step 2 already captured for the
+   prior passing run, plus a crash log line for free if
+   `execution_status` is `"Failed"`.
+
+Never call `get_test_chain_run_report` (the 700K+ char payload), never
+pull a signed file, and never do the multi-check reconciliation step 4
+does for two-bucket verdicts — those are exactly the expensive parts
+this tier exists to skip. Produce a coarse, explicitly-unconfirmed label
+from just those two calls:
+- baseline pointer/version differs from what the last passing run used
+  → `"possible baseline issue on \`<check_name>\`, unconfirmed"`
+- `execution_status: "Failed"` → `` "execution failure: `<the
+  log_tail line>`, unconfirmed" ``
+- neither of the above → `` "content mismatch on `<check_name>`,
+  magnitude unconfirmed" ``
+
+Report this in the deep-dive table's Root cause cell worded exactly
+like that, still tagged with a bucket-appropriate emoji when there's
+enough signal to guess one confidently (🔴 for the crash/content cases,
+🟡 if the baseline pointer changed), but never claim more certainty than
+the two calls actually support — no diff magnitude, no confirmed
+bucket, no reconciliation across checks. Confirming it is what the
+follow-up prompt below asks a human to request.
 
 **🔵 (incomplete/Started) triggers are never auto-investigated in
 scheduled-check mode, at any depth.** Step 5's stall check exists to
@@ -703,9 +741,10 @@ version?" offer entirely — there's no one present to answer either.
 Don't publish an HTML artifact in this mode unless the routine config
 explicitly asks for one.
 
-**Deep-dive delivery.** Whichever triggers do get root-caused under the
-gate above, post their step 6 table as a **threaded reply** to the
-status-table message — pass that message's own `ts` back in as
+**Deep-dive delivery.** Whichever triggers get investigated under the
+gate above — full step 4 under `full` depth, shallow diagnosis under
+`gated` — post their findings as a step 6-style table, as a **threaded
+reply** to the status-table message — pass that message's own `ts` back in as
 `thread_ts` (the Slack send-message tool returns it in its result)
 rather than posting a new top-level message, and still follow step 3's
 Slack linking rules within it. This keeps one parent message per firing
@@ -719,8 +758,8 @@ to a fresh Claude Code session. Post one compact block as a reply in the
 same thread as the deep-dive reply above (same `thread_ts`; a single
 reply covers every such row that firing, don't send one per trigger),
 one line per row, each a copy-paste-ready prompt in an inline code span.
-Which of the two prompts a row gets depends on whether it was actually
-investigated this firing:
+Which of the three prompts a row gets depends on whether — and how
+deeply — it was actually investigated this firing:
 
 - **Needs a look** — for any 🔴 row that got *no* step-6 root-cause
   treatment this firing (depth is `none`, or the gate above skipped a
@@ -733,17 +772,28 @@ investigated this firing:
   > **Needs a look:** `Run active-triggers step 4 root-cause on trigger
   > rc-release (id 46f9b657), org 2 (Development), latest TCR 60452.`
 
-- **Needs a fix** — for a 🔴 row that *did* get root-caused this firing
-  (never applies to 🔵, which is never root-caused here). The diagnosis
-  already happened, so hand it off rather than asking for it again:
-  name the trigger (name + id), the org, and the specific bucket +
-  mechanism from that row's step 6 cell, and ask for
+- **Needs a fix** — for a 🔴 row that *did* get investigated this firing
+  under `full` depth (never applies to 🔵, which is never investigated
+  here). The diagnosis is confirmed, so hand it off rather than asking
+  for it again: name the trigger (name + id), the org, and the specific
+  bucket + mechanism from that row's step 6 cell, and ask for
   troubleshooting/remediation help, e.g.:
 
   > **Needs a fix:** `Help me troubleshoot and fix trigger
   > bravo-release (id 2a3b4c5d), org 2 (Development): CLI flag renamed
   > --input-mode->--mode, crashing since TCR 60301
   > (1.2.0-DRAFT-260811-6e5c587).`
+
+- **Needs confirmation** — for a 🔴 row that got the **shallow
+  diagnosis** under `gated` depth. It's a lead, not a confirmed root
+  cause, so don't phrase it as "fix" yet — fold the coarse finding in
+  and ask for the full step 4 investigation to confirm (and fix once
+  confirmed), e.g.:
+
+  > **Needs confirmation:** `Trigger rc-release (id 46f9b657), org 2
+  > (Development) shallow-diagnosed as a possible baseline issue on
+  > \`Compare concordant bases\`, unconfirmed. Run active-triggers step
+  > 4 full root-cause on latest TCR 60452 to confirm, then help fix.`
 
 ## Notes
 
