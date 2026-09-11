@@ -659,19 +659,20 @@ every firing — this is the core deliverable of scheduled-check mode and
 is never skipped or gated.
 
 **Root-cause gating (step 4) — the one behavior that differs from an
-interactive run.** Default depth is **gated**: only auto-root-cause a
-trigger whose step 2 pattern shows an actual state change within the
-pulled window — a 🔴 "newly failing" trigger (a clean pass→fail
-transition inside the window), or a 🔵 that step 5 confirms is a genuine
-new stall. Skip auto-root-causing a 🔴 trigger that's monotonic-fail
-across the whole pulled window: no visible transition means it was very
-likely already caught and reported by an earlier firing of this same
-routine, and re-running the full step 4 investigation (multiple round
-trips, large per-check payloads, sometimes signed-file downloads) on
-every firing just to re-confirm an already-known failure isn't worth the
-cost. For a gated-out chronic 🔴, note it in the status table's Note
-column as "still failing, no new pattern change since last check" rather
-than giving it a Root cause cell — don't silently drop the row.
+interactive run.** Scoped to 🔴 failures only — see the 🔵 note just
+below for why stalled/incomplete triggers are handled separately and
+never folded into this gate. Default depth is **gated**: only
+auto-root-cause a 🔴 trigger whose step 2 pattern shows an actual pass→
+fail transition within the pulled window ("newly failing"). Skip
+auto-root-causing a 🔴 trigger that's monotonic-fail across the whole
+pulled window: no visible transition means it was very likely already
+caught and reported by an earlier firing of this same routine, and
+re-running the full step 4 investigation (multiple round trips, large
+per-check payloads, sometimes signed-file downloads) on every firing
+just to re-confirm an already-known failure isn't worth the cost. For a
+gated-out chronic 🔴, note it in the status table's Note column as
+"still failing, no new pattern change since last check" rather than
+giving it a Root cause cell — don't silently drop the row.
 - This gate is a heuristic based on what's visible in the pulled window,
   not real cross-firing memory — a chronic failure that's actually
   changed root cause mid-streak (see step 4's note on this) will only get
@@ -679,9 +680,22 @@ than giving it a Root cause cell — don't silently drop the row.
   requesting full depth (below).
 - If the routine config names a different depth, follow that instead:
   **none** (status table only, no auto root-causing at all this firing)
-  or **full** (root-cause every 🔴/🔵 every firing, same as the
-  interactive default — highest cost, and nothing catches a bucket
-  misclassification before it posts).
+  or **full** (root-cause every 🔴 every firing, same as the interactive
+  default's regression/baseline/threshold-noise bucketing — highest
+  cost, and nothing catches a bucket misclassification before it
+  posts). Depth only ever governs 🔴 handling — see below for 🔵.
+
+**🔵 (incomplete/Started) triggers are never auto-investigated in
+scheduled-check mode, at any depth.** Step 5's stall check exists to
+tell a still-running chain apart from a genuinely stalled one, but
+doing that means pulling prior successful runs' environment data to
+compare runtimes — worth doing once, interactively, not worth
+re-running automatically on every firing for a trigger that may simply
+still be executing normally. Leave it reported as 🔵 in the status
+table exactly as step 3 always renders it, and give it a "Needs a look"
+follow-up prompt (below) so a human decides when it's actually worth
+checking for a stall, rather than the routine re-deciding every time it
+fires.
 
 **No interactive offers.** Skip step 3's "dig into a recovered/
 intermittent trigger?" offer and step 6's "want the rendered/Artifact
@@ -708,18 +722,22 @@ one line per row, each a copy-paste-ready prompt in an inline code span.
 Which of the two prompts a row gets depends on whether it was actually
 investigated this firing:
 
-- **Needs a look** — for a 🔴/🔵 row that got *no* step-6 root-cause
-  treatment this firing, because depth is `none` or because the gate
-  above skipped a chronic 🔴. Name the trigger (name + id), the org, and
-  the latest TCR, and ask for the investigation from scratch, e.g.:
+- **Needs a look** — for any 🔴 row that got *no* step-6 root-cause
+  treatment this firing (depth is `none`, or the gate above skipped a
+  chronic 🔴), and for every 🔵 row without exception — 🔵 is never
+  auto-investigated in this mode regardless of depth (see above), so
+  every 🔵 that entered step 4 gets this prompt. Name the trigger (name
+  + id), the org, and the latest TCR, and ask for the investigation
+  from scratch, e.g.:
 
   > **Needs a look:** `Run active-triggers step 4 root-cause on trigger
   > rc-release (id 46f9b657), org 2 (Development), latest TCR 60452.`
 
-- **Needs a fix** — for a row that *did* get root-caused this firing.
-  The diagnosis already happened, so hand it off rather than asking for
-  it again: name the trigger (name + id), the org, and the specific
-  bucket + mechanism from that row's step 6 cell, and ask for
+- **Needs a fix** — for a 🔴 row that *did* get root-caused this firing
+  (never applies to 🔵, which is never root-caused here). The diagnosis
+  already happened, so hand it off rather than asking for it again:
+  name the trigger (name + id), the org, and the specific bucket +
+  mechanism from that row's step 6 cell, and ask for
   troubleshooting/remediation help, e.g.:
 
   > **Needs a fix:** `Help me troubleshoot and fix trigger
