@@ -1,8 +1,8 @@
 ---
 name: active-triggers
-description: Use when the user asks "what's going on with my [most] active test triggers", "miqa trigger status", "why are my miqa triggers failing", or otherwise wants a status + root-cause sweep across Miqa test triggers (via a connected Miqa MCP server). Produces a fast pass/fail table first, then root-causes what's currently broken and offers to dig into anything that already recovered. For "show me all results for version/docker tag X" instead, see the sibling `version-rollup` skill.
+description: Use when the user asks "what's going on with my [most] active test triggers", "miqa trigger status", "why are my miqa triggers failing", or otherwise wants a status + root-cause sweep across Miqa test triggers (via a connected Miqa MCP server). Produces a fast pass/fail table first, then root-causes what's currently broken and offers to dig into anything that already recovered. Also covers "scheduled-check mode" for a recurring routine invocation — see that section for the policy a thin routine config should defer to. For "show me all results for version/docker tag X" instead, see the sibling `version-rollup` skill.
 metadata:
-  version: 1.14.0
+  version: 1.15.0
 ---
 
 # Miqa Active Trigger Triage
@@ -629,6 +629,70 @@ the sweep, rather than guessing from the server name.
    look, trim filler next time (shorter trigger names, tighter phrasing) —
    but that trimming budget never comes from dropping a real second failure
    mode or shortening a docker tag.
+
+## Scheduled-check mode
+
+Triggered when the invoking routine/config says to run this skill "in
+scheduled-check mode" — typically a recurring routine — rather than an
+interactive ask. The routine config itself should stay thin: which org id
+to select, which web host to use, and which Slack channel (or DM) to post
+to. What depth of root-causing happens automatically, and what gets
+skipped because no one is present to answer a follow-up, is this mode's
+policy and lives here in the skill, not restated in the routine config
+every time.
+
+**Fixed inputs the routine supplies, nothing else:**
+- **Org id** — call `set_organization` directly with the given id if
+  `get_org_context` shows no org selected yet (or a different one
+  selected); this is a context-selection call, not a run-starting one, so
+  it doesn't need per-firing confirmation.
+- **Web host** — supplied directly by the routine config; skip step 1's
+  `MIQA_SERVER_URL` derivation entirely and use the given host for step
+  3/6 links.
+- **Delivery target** — a Slack channel or DM. Resolve it via the
+  channel-search tool exactly as step 3's Slack delivery mode already
+  describes; if it can't be resolved, stop and report exactly what failed
+  rather than guessing a channel ID.
+
+**Always ship the step 3 status table** to the given delivery target,
+every firing — this is the core deliverable of scheduled-check mode and
+is never skipped or gated.
+
+**Root-cause gating (step 4) — the one behavior that differs from an
+interactive run.** Default depth is **gated**: only auto-root-cause a
+trigger whose step 2 pattern shows an actual state change within the
+pulled window — a 🔴 "newly failing" trigger (a clean pass→fail
+transition inside the window), or a 🔵 that step 5 confirms is a genuine
+new stall. Skip auto-root-causing a 🔴 trigger that's monotonic-fail
+across the whole pulled window: no visible transition means it was very
+likely already caught and reported by an earlier firing of this same
+routine, and re-running the full step 4 investigation (multiple round
+trips, large per-check payloads, sometimes signed-file downloads) on
+every firing just to re-confirm an already-known failure isn't worth the
+cost. For a gated-out chronic 🔴, note it in the status table's Note
+column as "still failing, no new pattern change since last check" rather
+than giving it a Root cause cell — don't silently drop the row.
+- This gate is a heuristic based on what's visible in the pulled window,
+  not real cross-firing memory — a chronic failure that's actually
+  changed root cause mid-streak (see step 4's note on this) will only get
+  caught by a human running the interactive sweep, or by explicitly
+  requesting full depth (below).
+- If the routine config names a different depth, follow that instead:
+  **none** (status table only, no auto root-causing at all this firing)
+  or **full** (root-cause every 🔴/🔵 every firing, same as the
+  interactive default — highest cost, and nothing catches a bucket
+  misclassification before it posts).
+
+**No interactive offers.** Skip step 3's "dig into a recovered/
+intermittent trigger?" offer and step 6's "want the rendered/Artifact
+version?" offer entirely — there's no one present to answer either.
+Don't publish an HTML artifact in this mode unless the routine config
+explicitly asks for one.
+
+**Deep-dive delivery.** Whichever triggers do get root-caused under the
+gate above, post their step 6 table to the same delivery target as a
+follow-up message (not merged into the status-table message), using step
+3's Slack linking rules.
 
 ## Notes
 
