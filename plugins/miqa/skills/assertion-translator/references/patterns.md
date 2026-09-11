@@ -36,6 +36,14 @@ check_type across multiple invented groups.
 * `compare_all_fields` is called directly on `data_baseline.rows`, never chained after `.match()` —
   `match(...).compare_all_fields()` raises `AttributeError` (`match()`'s result only has
   `.compare_fields()`/`.compare_by()`).
+* Adding `table_config` to a check without also setting `"visualization": "table"` silently drops the
+  tables from the report — same for `chart_config` needing `"visualization": "chart"`. See
+  `reporting-and-display-parameters.md` (linked from `doc-paths.md`).
+* For "show every field's value, not just pass/fail" tables, use `.results(flatten=True, expand=True)`
+  (or `.only_differences(flatten=True, expand=True)` for a diffs-only version) — each returned row
+  includes a `comparison` field with the actual computed diff magnitude. `.overlap_results(...)` only
+  reports presence/overlap status (`only_in_baseline`/`only_in_results`/`in_both`), not per-field diff
+  values, even with `diffs_only=False`.
 
 ## Natural-language requests
 
