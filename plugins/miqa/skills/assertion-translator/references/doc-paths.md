@@ -36,3 +36,4 @@ credential out of the skill.
 | String-list membership, overlap, and patterns | `building-tests/writing-assertions/structured-data-and-queries/miqa-data-structures/working-with-miqastringlist.md` |
 | Single-string validation and parsing | `building-tests/writing-assertions/structured-data-and-queries/miqa-data-structures/string-based-validations-miqastring.md` |
 | Paired tabular MDO evaluation | `building-tests/assertion-types/tabular-files/paired-tabular-mdo-eval.md` |
+| `visualization`, `table_config`/`chart_config` rendering, `evidence`, `export_name` | `building-tests/writing-assertions/common-parameters/reporting-and-display-parameters.md` |
