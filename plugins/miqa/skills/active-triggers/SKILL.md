@@ -2,7 +2,7 @@
 name: active-triggers
 description: Use when the user asks "what's going on with my [most] active test triggers", "miqa trigger status", "why are my miqa triggers failing", or otherwise wants a status + root-cause sweep across Miqa test triggers (via a connected Miqa MCP server). Produces a fast pass/fail table first, then root-causes what's currently broken and offers to dig into anything that already recovered. Also covers "scheduled-check mode" for a recurring routine invocation — see that section for the policy a thin routine config should defer to. For "show me all results for version/docker tag X" instead, see the sibling `version-rollup` skill.
 metadata:
-  version: 1.15.0
+  version: 1.16.0
 ---
 
 # Miqa Active Trigger Triage
@@ -698,21 +698,34 @@ Slack linking rules within it. This keeps one parent message per firing
 in the channel, with everything else nested underneath instead of
 piling up as separate top-level posts.
 
-**Follow-up prompts for un-investigated fails.** Any 🔴/🔵 row that does
-*not* get a step-6 root-cause treatment this firing — because depth is
-`none`, or because the gate above skipped a chronic 🔴 — should carry a
-way to ask for it on demand instead of dead-ending in the table. Post
-one compact block as a reply in the same thread as the deep-dive reply
-above (same `thread_ts`; a single reply covers every such row that
-firing, don't send one per trigger), one line per row, each a
-copy-paste-ready prompt in an inline code span naming the trigger (name
-+ id), the org, and the latest TCR, e.g.:
+**Follow-up prompts — every row entering step 4 this firing gets one.**
+This mode only diagnoses, it never remediates, so nothing should
+dead-end in the table without a concrete next action a human can hand
+to a fresh Claude Code session. Post one compact block as a reply in the
+same thread as the deep-dive reply above (same `thread_ts`; a single
+reply covers every such row that firing, don't send one per trigger),
+one line per row, each a copy-paste-ready prompt in an inline code span.
+Which of the two prompts a row gets depends on whether it was actually
+investigated this firing:
 
-> **Needs a look:** `Run active-triggers step 4 root-cause on trigger
-> rc-release (id 46f9b657), org 2 (Development), latest TCR 60452.`
+- **Needs a look** — for a 🔴/🔵 row that got *no* step-6 root-cause
+  treatment this firing, because depth is `none` or because the gate
+  above skipped a chronic 🔴. Name the trigger (name + id), the org, and
+  the latest TCR, and ask for the investigation from scratch, e.g.:
 
-A row that *did* get root-caused this firing doesn't need one — its
-answer is already in the same thread.
+  > **Needs a look:** `Run active-triggers step 4 root-cause on trigger
+  > rc-release (id 46f9b657), org 2 (Development), latest TCR 60452.`
+
+- **Needs a fix** — for a row that *did* get root-caused this firing.
+  The diagnosis already happened, so hand it off rather than asking for
+  it again: name the trigger (name + id), the org, and the specific
+  bucket + mechanism from that row's step 6 cell, and ask for
+  troubleshooting/remediation help, e.g.:
+
+  > **Needs a fix:** `Help me troubleshoot and fix trigger
+  > bravo-release (id 2a3b4c5d), org 2 (Development): CLI flag renamed
+  > --input-mode->--mode, crashing since TCR 60301
+  > (1.2.0-DRAFT-260811-6e5c587).`
 
 ## Notes
 
