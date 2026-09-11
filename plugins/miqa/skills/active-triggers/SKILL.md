@@ -690,9 +690,29 @@ Don't publish an HTML artifact in this mode unless the routine config
 explicitly asks for one.
 
 **Deep-dive delivery.** Whichever triggers do get root-caused under the
-gate above, post their step 6 table to the same delivery target as a
-follow-up message (not merged into the status-table message), using step
-3's Slack linking rules.
+gate above, post their step 6 table as a **threaded reply** to the
+status-table message — pass that message's own `ts` back in as
+`thread_ts` (the Slack send-message tool returns it in its result)
+rather than posting a new top-level message, and still follow step 3's
+Slack linking rules within it. This keeps one parent message per firing
+in the channel, with everything else nested underneath instead of
+piling up as separate top-level posts.
+
+**Follow-up prompts for un-investigated fails.** Any 🔴/🔵 row that does
+*not* get a step-6 root-cause treatment this firing — because depth is
+`none`, or because the gate above skipped a chronic 🔴 — should carry a
+way to ask for it on demand instead of dead-ending in the table. Post
+one compact block as a reply in the same thread as the deep-dive reply
+above (same `thread_ts`; a single reply covers every such row that
+firing, don't send one per trigger), one line per row, each a
+copy-paste-ready prompt in an inline code span naming the trigger (name
++ id), the org, and the latest TCR, e.g.:
+
+> **Needs a look:** `Run active-triggers step 4 root-cause on trigger
+> rc-release (id 46f9b657), org 2 (Development), latest TCR 60452.`
+
+A row that *did* get root-caused this firing doesn't need one — its
+answer is already in the same thread.
 
 ## Notes
 
