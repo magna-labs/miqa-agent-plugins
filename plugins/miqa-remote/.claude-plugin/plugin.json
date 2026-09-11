@@ -1,0 +1,23 @@
+{
+  "name": "miqa-remote",
+  "version": "0.7.9",
+  "description": "Connects Claude to a hosted Miqa MCP server over HTTP with your own API key",
+  "author": {
+    "name": "Magna Labs"
+  },
+  "userConfig": {
+    "server_url": {
+      "type": "string",
+      "title": "Miqa MCP server URL",
+      "description": "The hosted Miqa MCP server, e.g. https://miqa-mcp-yourco.onrender.com (no trailing /mcp)",
+      "required": true
+    },
+    "api_key": {
+      "type": "string",
+      "title": "Miqa API key",
+      "description": "Your own Miqa APIv2 key, created at {your_miqa_server}/manage_app_keys_v2/",
+      "sensitive": true,
+      "required": true
+    }
+  }
+}
