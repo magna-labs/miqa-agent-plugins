@@ -2,7 +2,7 @@
   "mcpServers": {
     "miqa-mcp": {
       "type": "http",
-      "url": "${user_config.server_url}/mcp",
+      "url": "https://miqa-mcp-facet.onrender.com/mcp",
       "headers": {
         "Authorization": "Bearer ${user_config.api_key}"
       }
