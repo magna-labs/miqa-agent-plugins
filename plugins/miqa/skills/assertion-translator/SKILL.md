@@ -223,14 +223,11 @@ the exact `check_type` string shared by every check inside that group's `checks`
 `PASS` from the validator below is not evidence this is correct — it only catches this if you check
 it yourself, every time, before treating a blob as ready.
 
-Run via `uvx`, resolving `miqatools` transitively through the exact `miqa-mcp` version this plugin
-already pins in `../../.mcp.json` (its `args` entry `miqa-mcp@<version>`) — this guarantees a
-`miqatools` build with the `outputexplorer` module, matching what the running server itself uses,
-without any local `pip install` and with no separate version to keep in sync by hand. Read that
-version from `.mcp.json` at run time, then:
+Run via `uvx` from `miqatools` 2.x, which ships the `outputexplorer` module, with no local
+`pip install`:
 
 ```
-uvx --prerelease=allow --from 'miqa-mcp==<version from .mcp.json>' python -m miqatools.outputexplorer.validation BLOB.json --vocab VOCAB.json
+uvx --from 'miqatools>=2.0.0,<3' python -m miqatools.outputexplorer.validation BLOB.json --vocab VOCAB.json
 ```
 
 If `uvx` is unavailable, fall back to a local `python -m miqatools.outputexplorer.validation` and

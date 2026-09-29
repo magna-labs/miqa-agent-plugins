@@ -1,0 +1,47 @@
+name: Sync deployments
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - plugins/miqa/skills/**
+      - deployments/**
+      - .github/workflows/sync-deployments.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        deployment: [facet]
+    concurrency:
+      group: sync-deployment-${{ matrix.deployment }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: source
+      - uses: actions/checkout@v4
+        with:
+          repository: magna-labs/miqa-agent-plugins-${{ matrix.deployment }}
+          token: ${{ secrets.DEPLOYMENT_REPOS_TOKEN }}
+          path: target
+      - name: Assemble
+        run: |
+          find target -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -R source/deployments/${{ matrix.deployment }}/. target/
+          mkdir -p target/plugins/miqa
+          cp -R source/plugins/miqa/skills target/plugins/miqa/skills
+      - name: Commit and push
+        working-directory: target
+        run: |
+          git add -A
+          git diff --cached --quiet && exit 0
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -m "Sync from miqa-agent-plugins@${GITHUB_SHA::7}"
+          git push origin HEAD:main
