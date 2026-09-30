@@ -1,0 +1,14 @@
+{
+  "name": "miqa-emerald",
+  "owner": {
+    "name": "Magna Labs",
+    "email": "help@magnalabs.co"
+  },
+  "plugins": [
+    {
+      "name": "miqa",
+      "source": "./plugins/miqa",
+      "description": "Hosted Miqa MCP server and agent skills"
+    }
+  ]
+}
