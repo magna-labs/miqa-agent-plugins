@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "miqa-mcp": {
+      "type": "http",
+      "url": "https://miqa-mcp-emerald.onrender.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${user_config.api_key}"
+      }
+    }
+  }
+}
