@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        deployment: [facet, redwood, topaz, emerald]
+        deployment: [facet, redwood, topaz, emerald, aws]
     concurrency:
       group: sync-deployment-${{ matrix.deployment }}
       cancel-in-progress: false
