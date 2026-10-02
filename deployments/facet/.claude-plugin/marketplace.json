@@ -1,5 +1,5 @@
 {
-  "name": "magna-labs",
+  "name": "miqa-facet",
   "owner": {
     "name": "Magna Labs",
     "email": "help@magnalabs.co"
@@ -8,8 +8,7 @@
     {
       "name": "miqa",
       "source": "./plugins/miqa",
-      "description": "Miqa MCP server integration and agent skills",
-      "version": "0.8.3"
+      "description": "Hosted Miqa MCP server and agent skills"
     }
   ]
 }

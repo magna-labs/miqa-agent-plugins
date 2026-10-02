@@ -1,8 +1,8 @@
 ---
 name: active-triggers
-description: Use when the user asks "what's going on with my [most] active test triggers", "miqa trigger status", "why are my miqa triggers failing", or otherwise wants a status + root-cause sweep across Miqa test triggers (via a connected Miqa MCP server). Produces a fast pass/fail table first, then root-causes what's currently broken and offers to dig into anything that already recovered. For "show me all results for version/docker tag X" instead, see the sibling `version-rollup` skill.
+description: Use when the user asks "what's going on with my [most] active test triggers", "miqa trigger status", "why are my miqa triggers failing", or otherwise wants a status + root-cause sweep across Miqa test triggers (via a connected Miqa MCP server). Produces a fast pass/fail table first, then root-causes what's currently broken and offers to dig into anything that already recovered. Also covers "scheduled-check mode" for a recurring routine invocation — see that section for the policy a thin routine config should defer to. For "show me all results for version/docker tag X" instead, see the sibling `version-rollup` skill.
 metadata:
-  version: 1.12.0
+  version: 1.17.0
 ---
 
 # Miqa Active Trigger Triage
@@ -138,6 +138,35 @@ the sweep, rather than guessing from the server name.
    failing" trigger still goes straight to step 4 automatically like any
    other currently-broken trigger — the Note there is extra context, not
    a reason to hold off.
+
+   **If the user asks to post this table to Slack** (a channel, a DM, or as
+   part of a scheduled routine), don't reuse the terminal's plain-text-only
+   rule from above — it exists to dodge a specific terminal-renderer bug
+   (see step 6's note on that), which doesn't apply here. The Slack
+   send-message tool renders standard markdown natively, including tables
+   and links, so this delivery mode is closer to the artifact's model than
+   the terminal's:
+   - Resolve the target channel first with the Slack search-channels tool
+     (strip a leading `#`); if more than one channel matches the given
+     name, ask which one rather than guessing. If no Slack tools are
+     connected, or the channel can't be resolved, stop and say exactly
+     what failed rather than guessing a channel ID.
+   - Send the same three-column table as real markdown
+     (`| Trigger | Status | Note |`), but link the trigger name to
+     `{web_host}/test_trigger/{trigger_id}` and each `TCR NNNNN` citation to
+     `{web_host}/test_chain_run/{tcr_id}`, using standard `[text](url)`
+     links — only when step 1 derived a web host; otherwise fall back to
+     the terminal table's plain-text form.
+   - Lead the message with one line naming the sweep, org, and date window
+     (e.g. "*Miqa Active Trigger Status* — org: {org_name} (id {org_id}),
+     window: last 14 days ({start} → {end})") so the post stands alone
+     without needing the surrounding conversation for context.
+   - After sending, report the message link back as confirmation.
+   - The same approach applies if the user instead (or additionally) wants
+     step 6's deep-dive table posted to Slack — same channel-resolution and
+     linking rules. The artifact remains the better venue for anything
+     needing the full root-cause case-card detail; Slack suits the compact
+     table form.
 
 4. **Root-cause every active trigger that's currently broken — automatically,
    without asking.** A 🔴 trigger, or a 🔵 (incomplete/Started, not yet
@@ -345,11 +374,23 @@ the sweep, rather than guessing from the server name.
      same way. `inspect_execution_outputs` can't fill the gap either: by
      design it returns only column headers/types, never actual data
      values. Don't silently drop or skip such a check because "there's
-     nothing to show" — report the coarser diff you did see and say
-     explicitly that the specific differing field/metric isn't
-     retrievable through the connected tools, so a human would need to
-     open the actual output file (e.g. via the Miqa web UI) to identify
-     it.
+     nothing to show" — first check whether the failing assertion's
+     sample detail carries a `checked_files` entry with a `bucket`/`key`
+     (and an `exec_id`) for the baseline and/or test file. If it does,
+     call `api_get_signed_url` for each side and pull the actual file
+     content yourself (e.g. a plain download to a scratch path) to
+     compare directly — this is often the only way to see the real
+     mechanism (a renamed/added column, a reordered row, a genuinely
+     different value) rather than guessing one from an aggregate
+     percentage or a downstream error string. Don't present a guessed
+     mechanism inferred from an error message as confirmed when the
+     underlying file was pullable and never actually checked. Only when
+     `checked_files`/`bucket`+`key` isn't present, or the file is
+     impractically large to diff by hand, fall back to reporting the
+     coarser diff you did see and saying explicitly that the specific
+     differing field/metric isn't retrievable through the connected
+     tools, so a human would need to open the actual output file (e.g.
+     via the Miqa web UI) to identify it.
    - **WARN-status checks are a different severity from FAIL, not a
      different category of "ignore."** When pulling `get_test_chain_run_results`
      for the run being root-caused, note any `check_status: "WARN"` entries
@@ -588,6 +629,171 @@ the sweep, rather than guessing from the server name.
    look, trim filler next time (shorter trigger names, tighter phrasing) —
    but that trimming budget never comes from dropping a real second failure
    mode or shortening a docker tag.
+
+## Scheduled-check mode
+
+Triggered when the invoking routine/config says to run this skill "in
+scheduled-check mode" — typically a recurring routine — rather than an
+interactive ask. The routine config itself should stay thin: which org id
+to select, which web host to use, and which Slack channel (or DM) to post
+to. What depth of root-causing happens automatically, and what gets
+skipped because no one is present to answer a follow-up, is this mode's
+policy and lives here in the skill, not restated in the routine config
+every time.
+
+**Fixed inputs the routine supplies, nothing else:**
+- **Org id** — call `set_organization` directly with the given id if
+  `get_org_context` shows no org selected yet (or a different one
+  selected); this is a context-selection call, not a run-starting one, so
+  it doesn't need per-firing confirmation.
+- **Web host** — supplied directly by the routine config; skip step 1's
+  `MIQA_SERVER_URL` derivation entirely and use the given host for step
+  3/6 links.
+- **Delivery target** — a Slack channel or DM. Resolve it via the
+  channel-search tool exactly as step 3's Slack delivery mode already
+  describes; if it can't be resolved, stop and report exactly what failed
+  rather than guessing a channel ID.
+
+**Always ship the step 3 status table** to the given delivery target,
+every firing — this is the core deliverable of scheduled-check mode and
+is never skipped or gated.
+
+**Root-cause gating (step 4) — the one behavior that differs from an
+interactive run.** Scoped to 🔴 failures only — see the 🔵 note just
+below for why stalled/incomplete triggers are handled separately and
+never folded into this gate. Depth controls two independent things:
+*which* 🔴 triggers get investigated this firing, and *how deep* that
+investigation goes.
+
+- **`none`** — status table only, no investigation of any 🔴 this
+  firing.
+- **`gated` (default)** — investigate only a 🔴 trigger whose step 2
+  pattern shows an actual pass→fail transition within the pulled window
+  ("newly failing"). Skip a 🔴 that's monotonic-fail across the whole
+  pulled window: no visible transition means it was very likely already
+  caught and reported by an earlier firing of this same routine, and
+  re-investigating it every firing just to re-confirm an already-known
+  failure isn't worth the cost. For a gated-out chronic 🔴, note it in
+  the status table's Note column as "still failing, no new pattern
+  change since last check" rather than giving it a Root cause cell —
+  don't silently drop the row. Whatever *does* get investigated under
+  `gated` gets the **shallow diagnosis** below, not the full step 4
+  pipeline — that's what keeps this depth cheap.
+- **`full`** — investigate every 🔴 every firing with the complete step
+  4 investigation, same as the interactive default's
+  regression/baseline/threshold-noise bucketing — highest cost, and
+  nothing catches a bucket misclassification before it posts.
+
+This gate is a heuristic based on what's visible in the pulled window,
+not real cross-firing memory — a chronic failure that's actually
+changed root cause mid-streak (see step 4's note on this) will only get
+caught by a human running the interactive sweep, or by explicitly
+requesting `full` depth. Depth only ever governs 🔴 handling — see below
+for 🔵.
+
+**Shallow diagnosis — `gated` depth's actual investigation, much
+cheaper than step 4's full pipeline.** For each newly-failing 🔴 the
+gate selects, make exactly two calls instead of the full step 4
+sequence:
+1. `get_test_chain_run_results` on the latest failing run — gives the
+   failing `check_name`(s) without pulling per-check diff detail.
+2. `get_test_chain_run_environment` on that same run only (no boundary
+   pair, no earliest-vs-latest comparison) — gives whether the baseline
+   pointer/version changed versus what step 2 already captured for the
+   prior passing run, plus a crash log line for free if
+   `execution_status` is `"Failed"`.
+
+Never call `get_test_chain_run_report` (the 700K+ char payload), never
+pull a signed file, and never do the multi-check reconciliation step 4
+does for two-bucket verdicts — those are exactly the expensive parts
+this tier exists to skip. Produce a coarse, explicitly-unconfirmed label
+from just those two calls:
+- baseline pointer/version differs from what the last passing run used
+  → `"possible baseline issue on \`<check_name>\`, unconfirmed"`
+- `execution_status: "Failed"` → `` "execution failure: `<the
+  log_tail line>`, unconfirmed" ``
+- neither of the above → `` "content mismatch on `<check_name>`,
+  magnitude unconfirmed" ``
+
+Report this in the deep-dive table's Root cause cell worded exactly
+like that, still tagged with a bucket-appropriate emoji when there's
+enough signal to guess one confidently (🔴 for the crash/content cases,
+🟡 if the baseline pointer changed), but never claim more certainty than
+the two calls actually support — no diff magnitude, no confirmed
+bucket, no reconciliation across checks. Confirming it is what the
+follow-up prompt below asks a human to request.
+
+**🔵 (incomplete/Started) triggers are never auto-investigated in
+scheduled-check mode, at any depth.** Step 5's stall check exists to
+tell a still-running chain apart from a genuinely stalled one, but
+doing that means pulling prior successful runs' environment data to
+compare runtimes — worth doing once, interactively, not worth
+re-running automatically on every firing for a trigger that may simply
+still be executing normally. Leave it reported as 🔵 in the status
+table exactly as step 3 always renders it, and give it a "Needs a look"
+follow-up prompt (below) so a human decides when it's actually worth
+checking for a stall, rather than the routine re-deciding every time it
+fires.
+
+**No interactive offers.** Skip step 3's "dig into a recovered/
+intermittent trigger?" offer and step 6's "want the rendered/Artifact
+version?" offer entirely — there's no one present to answer either.
+Don't publish an HTML artifact in this mode unless the routine config
+explicitly asks for one.
+
+**Deep-dive delivery.** Whichever triggers get investigated under the
+gate above — full step 4 under `full` depth, shallow diagnosis under
+`gated` — post their findings as a step 6-style table, as a **threaded
+reply** to the status-table message — pass that message's own `ts` back in as
+`thread_ts` (the Slack send-message tool returns it in its result)
+rather than posting a new top-level message, and still follow step 3's
+Slack linking rules within it. This keeps one parent message per firing
+in the channel, with everything else nested underneath instead of
+piling up as separate top-level posts.
+
+**Follow-up prompts — every row entering step 4 this firing gets one.**
+This mode only diagnoses, it never remediates, so nothing should
+dead-end in the table without a concrete next action a human can hand
+to a fresh Claude Code session. Post one compact block as a reply in the
+same thread as the deep-dive reply above (same `thread_ts`; a single
+reply covers every such row that firing, don't send one per trigger),
+one line per row, each a copy-paste-ready prompt in an inline code span.
+Which of the three prompts a row gets depends on whether — and how
+deeply — it was actually investigated this firing:
+
+- **Needs a look** — for any 🔴 row that got *no* step-6 root-cause
+  treatment this firing (depth is `none`, or the gate above skipped a
+  chronic 🔴), and for every 🔵 row without exception — 🔵 is never
+  auto-investigated in this mode regardless of depth (see above), so
+  every 🔵 that entered step 4 gets this prompt. Name the trigger (name
+  + id), the org, and the latest TCR, and ask for the investigation
+  from scratch, e.g.:
+
+  > **Needs a look:** `Run active-triggers step 4 root-cause on trigger
+  > rc-release (id 46f9b657), org 2 (Development), latest TCR 60452.`
+
+- **Needs a fix** — for a 🔴 row that *did* get investigated this firing
+  under `full` depth (never applies to 🔵, which is never investigated
+  here). The diagnosis is confirmed, so hand it off rather than asking
+  for it again: name the trigger (name + id), the org, and the specific
+  bucket + mechanism from that row's step 6 cell, and ask for
+  troubleshooting/remediation help, e.g.:
+
+  > **Needs a fix:** `Help me troubleshoot and fix trigger
+  > bravo-release (id 2a3b4c5d), org 2 (Development): CLI flag renamed
+  > --input-mode->--mode, crashing since TCR 60301
+  > (1.2.0-DRAFT-260811-6e5c587).`
+
+- **Needs confirmation** — for a 🔴 row that got the **shallow
+  diagnosis** under `gated` depth. It's a lead, not a confirmed root
+  cause, so don't phrase it as "fix" yet — fold the coarse finding in
+  and ask for the full step 4 investigation to confirm (and fix once
+  confirmed), e.g.:
+
+  > **Needs confirmation:** `Trigger rc-release (id 46f9b657), org 2
+  > (Development) shallow-diagnosed as a possible baseline issue on
+  > \`Compare concordant bases\`, unconfirmed. Run active-triggers step
+  > 4 full root-cause on latest TCR 60452 to confirm, then help fix.`
 
 ## Notes
 
