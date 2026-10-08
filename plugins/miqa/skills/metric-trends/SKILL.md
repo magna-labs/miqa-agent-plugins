@@ -46,7 +46,10 @@ is heavy to read. Work in stages and keep the user informed:
   independent calls (assertions and execution status) in parallel.
 - Start with a bounded window (the default newest 25 versions) unless the
   user asked for the full history. Widen only if the first pass shows they
-  need more, and say so when you do.
+  need more, and say so when you do. The window is pipeline-wide, so a
+  chain that ran in only a few of those versions yields very little: if
+  the first pass has fewer than about 10 completed runs, widen straight
+  away instead of summarizing it.
 - If a call is slow or times out, retry narrower (fewer versions, or a
   `metric_parent` or `tc_ids` filter) rather than repeating the same call.
 - Compute the statistics and plateaus with code on the saved response
@@ -102,7 +105,10 @@ is heavy to read. Work in stages and keep the user informed:
    - Each workflow variant is a separate series. Say so when a variant has
      no data instead of silently omitting it.
    - Label versions by docker tag and build date (a `yymmdd` in the tag
-     usually is one), never by an internal id or `v###` number.
+     usually is one), never by an internal id or `v###` number. If a
+     version has no docker tag (the label falls back to the bare id), use
+     its id, say it has no tag and no build date, and place it by order
+     between its neighbours.
 
 4. **Summarize each metric.** For every dataset, variant and metric: count,
    min, max, mean, standard deviation, number of distinct values, and a
@@ -141,11 +147,29 @@ is heavy to read. Work in stages and keep the user informed:
 8. **Chart on request only.** After the table, mention once that a chart
    is available (same offer pattern as `active-triggers`: state it once,
    don't re-offer, don't publish without a yes). When they accept, publish
-   a private Artifact: one small chart per metric on its own absolute
-   scale, versions on the x-axis labelled by date, plateaus shaded, failed
-   runs shown as gaps or ticks, and the min/max labelled. Every plotted
-   number comes from the pulled data. The user decides whether to share the
-   link; don't claim it was shared.
+   a private Artifact:
+   - The step 5 summary table at the top, with the same columns.
+   - One small chart per metric on its own absolute scale, versions on
+     the x-axis labelled by date, failed runs shown as gaps or ticks (never
+     as zeros), and the min/max labelled. Leave plateau shading off any
+     stretch hidden behind failed runs, so a change bounded by failures
+     reads as bounded.
+   - Shade each plateau by direction from the previous one, with a ▲ or ▼
+     and the signed change, so subtle steps are visible. This is direction
+     only, not better or worse, unless you know which way is good for that
+     metric.
+   - A companion distribution panel per metric on the same y-scale as the
+     trend, chosen by the shape found in step 4:
+     - Plateau-shaped (few distinct values, say 8 or fewer, mostly
+       repeats): run-count bars at each distinct value. Nudge bars apart
+       where values nearly coincide and keep a line to the true height.
+     - Varies run to run (many distinct values): a histogram plus a box
+       plot (min, quartiles, median, max, outliers marked), and no plateau
+       shading, since there are no plateaus.
+     - Mixed (steps with noise inside each step): a box plot per plateau.
+
+   Every plotted number comes from the pulled data. The user decides
+   whether to share the link; don't claim it was shared.
 
 ## Notes
 
