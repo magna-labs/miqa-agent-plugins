@@ -2,7 +2,7 @@
 name: metric-trends
 description: Use when the user wants to understand how Miqa metrics changed over time — "how has X changed across versions", "when did this metric move", "show me the history/trend of these results", "how much does this vary run to run", "chart these over builds", or wants historical values summarized or visualized for a pipeline, test chain or test block (via a connected Miqa MCP server). Pulls the history, cleans it, summarizes each metric (range, variation, where it changed), investigates a change on request, and offers a chart. Not for a single build's results (use version-rollup) or a trigger's current health (use active-triggers).
 metadata:
-  version: 0.1.0
+  version: 0.1.1
 ---
 
 # Miqa Metric Trends
@@ -16,7 +16,10 @@ build and `active-triggers` is the current health of a trigger.
 This skill calls `get_all_metrics` (it may appear as `api_get_all_metrics`)
 on whichever Miqa MCP server is connected (tool names follow the pattern
 `mcp__<server-name>__<tool>`). If more than one Miqa server is connected,
-ask which one before proceeding.
+ask which one before proceeding. The same server reachable two ways (for
+example through a plugin and through a hosted connector, with the same
+tools and the same selected org) counts as one: use the plugin's and say
+which you used.
 
 It describes what happened. It does not choose pass/fail thresholds unless
 the user asks (step 7), because the usual reason for asking is to look at
@@ -52,12 +55,22 @@ is heavy to read. Work in stages and keep the user informed:
   away instead of summarizing it. If the first pass is full but nearly
   flat and the chain has a long history, widen in steps (for example to
   100 versions first), not straight to everything, and say what each step
-  added.
+  added. A window is complete only when it reaches past the chain's
+  oldest version. The window is pipeline-wide, so a window of 100 can hold
+  only a quarter of one chain's versions: if the oldest version with this
+  chain's data sits at the window edge, or the number of versions returned
+  equals the limit, there may be more history, so widen again and never
+  describe the result as the full history. With `tc_ids` and `ds_ids` set,
+  `limit=0` is often manageable and ends the guessing.
 - If a call is slow or times out, retry narrower (fewer versions, or a
   `metric_parent` or `tc_ids` filter) rather than repeating the same call.
 - Compute the statistics and plateaus with code on the saved response
   rather than reading rows by eye, and keep large raw output out of the
-  main conversation (a subagent or a script is fine). A few assertions can
+  main conversation (a subagent or a script is fine). If a result comes
+  back inline instead of as a saved file, do not retype values by hand:
+  keep the call small enough to read exactly, or have a script receive the
+  values verbatim, because a mistyped value looks exactly like a real one.
+  A few assertions can
   return whole diff reports as object values and make up most of a
   response (one such row was about two thirds of a 316k-character result
   for 25 versions). The tool cannot filter by value type, so read the
@@ -70,7 +83,8 @@ is heavy to read. Work in stages and keep the user informed:
 1. **Establish scope and org.** Call `get_org_context` first; if the user
    has several orgs and none is selected, ask once, then `set_organization`.
    Resolve what they mean by name: a pipeline (`get_pipelines`), a test
-   chain, or a test block. Test chain ids can be passed as `tc_ids` and the
+   chain, or a test block. A bare number after "Test Chain" is a chain id.
+   Test chain ids can be passed as `tc_ids` and the
    pipeline is then taken from them; otherwise pass `pipeline_id`. Ask only
    if the scope is genuinely ambiguous. For a test chain, also list its
    datasets (`get_test_chain_datasets`): the metrics response carries only
@@ -104,7 +118,9 @@ is heavy to read. Work in stages and keep the user informed:
    zero. Then normalize before computing anything:
    - Assertions appear as two rows: `<assertion>|result` is the measured
      value and `<assertion>|outcome` is pass/fail. Use `|result` for value
-     trends and `|outcome` for pass/fail history.
+     trends and `|outcome` for pass/fail history. The `|outcome` rows
+     carry the strings "pass" and "fail" whatever `value_type` says
+     (`number` or `boolean` both occur), so read them as text.
    - The threshold is part of the metric name (`SNP F1 >= 0.9786|result`),
      so history splits when a threshold was edited. Strip the comparison
      (`[<>]=?\s*number`) from the name and merge rows that now share it.
@@ -137,7 +153,13 @@ is heavy to read. Work in stages and keep the user informed:
      execution rows, never one list for the whole chain. Very long
      durations on failed runs (a repeated figure like 43,200s) look like
      timeouts. Keep them on the chart as gaps so a change hidden behind a
-     run of failures is visible.
+     run of failures is visible. Assertion rows can hold values for runs
+     that failed (a file-exists check reading 0 with outcome "fail"), and
+     nothing in the assertion response marks them: only the execution
+     status does, so always filter by it. A version that is still `Started`
+     (often duration 0) is not a failure: say it is unfinished and exclude
+     it. In a terminal table, where there are no chart gaps, name the
+     excluded failed runs in a sentence.
    - Each workflow variant is a separate series. Say so when a variant has
      no data instead of silently omitting it.
    - Label versions by docker tag and build date (a `yymmdd` in the tag
@@ -152,7 +174,12 @@ is heavy to read. Work in stages and keep the user informed:
    into plateaus and report where each begins. Say explicitly whether the
    metric moves in steps (deterministic pipeline, changes come from code or
    data changes) or varies run to run (real noise); the answer changes
-   what the numbers mean. Report absolute spread always, and relative
+   what the numbers mean, and it can differ per metric (assertion values
+   may step while duration varies), so say it for each. For a metric with
+   plateaus also report the spread inside each plateau (often zero), since
+   mean and standard deviation over the whole history mostly describe the
+   steps. Say whether the standard deviation is population or sample (use
+   population unless you have a reason). A noisy metric has no plateaus. Report absolute spread always, and relative
    spread only for counts or values far from zero — for ratios and
    anything near zero a tiny absolute change looks like a large percentage.
    Flag which metrics change at all, and rank those by relative spread
@@ -168,9 +195,14 @@ is heavy to read. Work in stages and keep the user informed:
    Columns: range, spread,
    distinct values, number of plateaus, latest value. Note that this
    terminal renders plain CommonMark: no cell color and no inline links.
-   End with the open questions you could not answer from the data.
+   End with the open questions you could not answer from the data, then
+   the one-time chart offer (step 8). If the version where a change
+   appears has no docker tag, say so where you report the change.
 
-6. **Investigate a change, only when asked or clearly wanted.** Find the
+6. **Investigate a change, only when asked or clearly wanted.** Where a
+   metric moved is always answered from the data (below); the comparison of
+   builds is for why, so do that only when the user asks or clearly wants
+   it. Find the
    first version showing the new value and the last showing the old one.
    If failed runs sit between them, say the change is bounded but not
    pinpointed and name that window. Look at what differed between those
