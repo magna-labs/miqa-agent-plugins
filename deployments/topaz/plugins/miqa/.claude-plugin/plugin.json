@@ -1,0 +1,16 @@
+{
+  "name": "miqa",
+  "description": "Connects Claude to the hosted Miqa MCP server for this deployment with your own API key",
+  "author": {
+    "name": "Magna Labs"
+  },
+  "userConfig": {
+    "api_key": {
+      "type": "string",
+      "title": "Miqa API key",
+      "description": "Your own Miqa APIv2 key, created at {your_miqa_server}/manage_app_keys_v2/",
+      "sensitive": true,
+      "required": true
+    }
+  }
+}
