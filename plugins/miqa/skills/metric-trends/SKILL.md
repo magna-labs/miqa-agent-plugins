@@ -65,14 +65,20 @@ is heavy to read. Work in stages and keep the user informed:
    Resolve what they mean by name: a pipeline (`get_pipelines`), a test
    chain, or a test block. Test chain ids can be passed as `tc_ids` and the
    pipeline is then taken from them; otherwise pass `pipeline_id`. Ask only
-   if the scope is genuinely ambiguous.
+   if the scope is genuinely ambiguous. For a test chain, also list its
+   datasets (`get_test_chain_datasets`): the metrics response carries only
+   numeric `datasource_id`s, and this gives the names to label them with
+   and the ids to filter by in step 2.
 
 2. **Pull the history with `get_all_metrics`, one source per call.**
    - Assertions: `metric_category=test_assertion`, plus `tc_ids` and/or
      `metric_parent` (a case-insensitive substring of the test block name)
      to keep the response small.
    - Status and duration: a separate call with `metric_category=execution`.
-     You need it to know which versions actually completed.
+     You need it to know which versions actually completed. The execution
+     rows cover every dataset in the pipeline, which can be many more than
+     the chain uses, so pass `ds_ids` (the chain's datasets from step 1) on
+     both calls to keep the response small.
    - Postprocessor values only when asked: `include_pp_results=true`.
    - Choose `limit` deliberately. The default is the newest 25 versions;
      `limit=0` is every version and can be large (the version window is
@@ -95,10 +101,20 @@ is heavy to read. Work in stages and keep the user informed:
    - The threshold is part of the metric name (`SNP F1 >= 0.9786|result`),
      so history splits when a threshold was edited. Strip the comparison
      (`[<>]=?\s*number`) from the name and merge rows that now share it.
+     Names without a threshold are common; then there is nothing to strip,
+     and no threshold column or line to show later. Also trim and collapse
+     whitespace (a trailing space makes "SNP F1" and "SNP F1 " different
+     rows), so the same metric lines up across datasets.
+   - `value_type` can be `string` for a numeric result (`"0.9986"`). Convert
+     numeric strings to numbers before computing; leave genuinely
+     non-numeric values (booleans, labels) as they are.
    - Rows can appear in duplicate, including empty twins; merge them and
      check that merged cells don't disagree.
    - Drop versions whose execution status isn't `Done` before computing
-     anything; a failed or unfinished run has no real value. Very long
+     anything; a failed or unfinished run has no real value. Status is
+     per dataset, not per version: datasets can join a chain later or fail
+     on different builds, so decide Done-ness for each dataset using its own
+     execution rows, never one list for the whole chain. Very long
      durations on failed runs (a repeated figure like 43,200s) look like
      timeouts. Keep them on the chart as gaps so a change hidden behind a
      run of failures is visible.
@@ -121,7 +137,10 @@ is heavy to read. Work in stages and keep the user informed:
    anything near zero a tiny absolute change looks like a large percentage.
 
 5. **Post a terminal table first** — don't investigate or chart before
-   shipping it. One row per metric (grouped by dataset): range, spread,
+   shipping it. With only a few datasets, one row per metric (grouped by
+   dataset); with many, give an overview matrix (dataset by metric, one
+   statistic such as spread) and offer to expand one dataset, rather than
+   printing every row. Columns: range, spread,
    distinct values, number of plateaus, latest value. Note that this
    terminal renders plain CommonMark: no cell color and no inline links.
    End with the open questions you could not answer from the data.
@@ -148,7 +167,12 @@ is heavy to read. Work in stages and keep the user informed:
    is available (same offer pattern as `active-triggers`: state it once,
    don't re-offer, don't publish without a yes). When they accept, publish
    a private Artifact:
-   - The step 5 summary table at the top, with the same columns.
+   - The step 5 summary table at the top, with the same columns. With many
+     datasets, put one tab per dataset and an overview grid (dataset by
+     metric) above the tabs, with buttons to switch its statistic (min, max,
+     mean, spread, standard deviation, latest, plateau count). Shade
+     min, max, mean and latest by rank within each metric, and spread,
+     standard deviation and plateau count by size.
    - One small chart per metric on its own absolute scale, versions on
      the x-axis labelled by date, failed runs shown as gaps or ticks (never
      as zeros), and the min/max labelled. Leave plateau shading off any
