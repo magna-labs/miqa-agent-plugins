@@ -49,12 +49,19 @@ is heavy to read. Work in stages and keep the user informed:
   need more, and say so when you do. The window is pipeline-wide, so a
   chain that ran in only a few of those versions yields very little: if
   the first pass has fewer than about 10 completed runs, widen straight
-  away instead of summarizing it.
+  away instead of summarizing it. If the first pass is full but nearly
+  flat and the chain has a long history, widen in steps (for example to
+  100 versions first), not straight to everything, and say what each step
+  added.
 - If a call is slow or times out, retry narrower (fewer versions, or a
   `metric_parent` or `tc_ids` filter) rather than repeating the same call.
 - Compute the statistics and plateaus with code on the saved response
   rather than reading rows by eye, and keep large raw output out of the
-  main conversation (a subagent or a script is fine).
+  main conversation (a subagent or a script is fine). A few assertions can
+  return whole diff reports as object values and make up most of a
+  response (one such row was about two thirds of a 316k-character result
+  for 25 versions). The tool cannot filter by value type, so read the
+  saved file with code and never print object values.
 - Ship the terminal summary (step 5) before any investigation, and before
   any chart; never build the chart in the same step as the first answer.
 
@@ -106,8 +113,21 @@ is heavy to read. Work in stages and keep the user informed:
      whitespace (a trailing space makes "SNP F1" and "SNP F1 " different
      rows), so the same metric lines up across datasets.
    - `value_type` can be `string` for a numeric result (`"0.9986"`). Convert
-     numeric strings to numbers before computing; leave genuinely
-     non-numeric values (booleans, labels) as they are.
+     numeric strings to numbers before computing. Then sort each series by
+     what its values are:
+     - Numeric: summarize as in step 4.
+     - Sentinel text (`"__NaN__"`, empty strings): report as "not
+       measurable as returned", with no statistics. If it is the same on
+       every run, say so in one line.
+     - Booleans: report how often each value occurs and where it flips.
+     - Small objects (a map of counts): compare the whole object between
+       runs and report where it changes; a derived number from one key
+       (for example a file count) can then be charted like any numeric
+       series.
+     - Large objects (diff reports, maps of file paths): leave out of the
+       statistics and the conversation. They often embed run-specific
+       names, so they differ on every run without being a measurement.
+       Say they were excluded, and list them with the reason.
    - Rows can appear in duplicate, including empty twins; merge them and
      check that merged cells don't disagree.
    - Drop versions whose execution status isn't `Done` before computing
@@ -135,12 +155,17 @@ is heavy to read. Work in stages and keep the user informed:
    what the numbers mean. Report absolute spread always, and relative
    spread only for counts or values far from zero — for ratios and
    anything near zero a tiny absolute change looks like a large percentage.
+   Flag which metrics change at all, and rank those by relative spread
+   where it is valid (absolute spread otherwise); many chains have a few
+   moving metrics among many constant ones.
 
 5. **Post a terminal table first** — don't investigate or chart before
    shipping it. With only a few datasets, one row per metric (grouped by
    dataset); with many, give an overview matrix (dataset by metric, one
    statistic such as spread) and offer to expand one dataset, rather than
-   printing every row. Columns: range, spread,
+   printing every row. Collapse metrics that never change into one row
+   ("24 count metrics, constant") and show the changing ones individually.
+   Columns: range, spread,
    distinct values, number of plateaus, latest value. Note that this
    terminal renders plain CommonMark: no cell color and no inline links.
    End with the open questions you could not answer from the data.
@@ -167,13 +192,20 @@ is heavy to read. Work in stages and keep the user informed:
    is available (same offer pattern as `active-triggers`: state it once,
    don't re-offer, don't publish without a yes). When they accept, publish
    a private Artifact:
-   - The step 5 summary table at the top, with the same columns. With many
+   - The step 5 summary table at the top, with the same columns plus
+     outcome counts (pass and fail) per metric. Show every numeric metric
+     by default, including constant ones, since a reader may look for a
+     specific metric and a constant is a result too; offer a toggle to
+     show only metrics that change. Highlight changing rows, sort them to
+     the top by relative spread (with an in-cell bar), and put constant
+     rows below. With many
      datasets, put one tab per dataset and an overview grid (dataset by
      metric) above the tabs, with buttons to switch its statistic (min, max,
      mean, spread, standard deviation, latest, plateau count). Shade
      min, max, mean and latest by rank within each metric, and spread,
      standard deviation and plateau count by size.
-   - One small chart per metric on its own absolute scale, versions on
+   - One small chart per metric that changes, on its own absolute scale
+     (constant metrics are covered by the table), versions on
      the x-axis labelled by date, failed runs shown as gaps or ticks (never
      as zeros), and the min/max labelled. Leave plateau shading off any
      stretch hidden behind failed runs, so a change bounded by failures
