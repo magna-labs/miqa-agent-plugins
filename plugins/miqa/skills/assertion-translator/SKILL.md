@@ -121,11 +121,35 @@ loops, and column operations when they answer one question.
 Apply these MIQA rules even when the source has a different structure:
 
 - Translate a comparison of two files into one `file_rules.pattern` that matches both files, with
-  `"versions": [-1]`. Compare `data_baseline` with `data_test`.
+  `"versions"` set per "Inherit the comparison baseline" below (`[-1]` only when nothing else is
+  established). Compare `data_baseline` with `data_test`.
+- Translate a version-over-version comparison of a postprocessor's scalar results (F1, recall,
+  precision, counts) into a `paired_postproc_results` check. See "Version-over-version result
+  comparisons" in `references/patterns.md`. A static `postproc_results` check cannot compare
+  versions.
 - Translate a sequence comparison with a DSL comparator, such as
   `compare_by('<field>', 'alignment_ratio')`. Do not drop it.
 - Translate a plot into `chart_config` with the live vocabulary's matching `chart_type`. Do not
   drop it.
+
+### Inherit the comparison baseline
+
+When the request adds a comparative check to an existing Test Block (the user supplied or you
+fetched its current assertions), do not default `versions` to `[-1]`. Look at the `versions` of the
+block's existing comparative checks first:
+
+- All agree (e.g. `["@release_series"]`): use the same value on the new check.
+- They disagree: ask which baseline the new check should use.
+- None exist, or there is no existing block: use `[-1]`.
+
+Always say so in the coverage report under Assumptions, naming the checks it was copied from (e.g.
+"`versions` copied from `FN Variant Comparison vs Baseline`: `[-1]`"). Likewise copy
+`processor_key`, `item_type` and `file_rules` from the sibling checks rather than re-deriving them.
+
+`api_run_adhoc_assertions` overrides `versions` with the baseline you supply ("Versions field was
+overridden temporarily..."), so an ad hoc run cannot confirm that a non-`-1` value such as
+`@release_series` resolves. Record that as a validation limit in the coverage report. Do not
+describe the check as verified against that baseline.
 
 For `compare_by`, `compare_fields`, or `compare_all_fields`, make `stat` Boolean. End the
 comparison with `.summary().is_match_within_threshold`; do not return the comparison object,
