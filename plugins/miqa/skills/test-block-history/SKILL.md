@@ -2,6 +2,7 @@
 name: test-block-history
 description: Use when the user asks about a Miqa TestBlock's "revision history", "version history", "what changed" on a test block, wants a diff between two TestBlockVersions, or wants to grab a specific version's (or a single check's) assertions JSON to paste into the Miqa web UI (via a connected Miqa MCP server). Always starts with a browsable version-history table (with a lightweight per-row change gloss), then branches into either diffing a pair of versions or copying one version's content to the clipboard with paste instructions.
 metadata:
+  summary: Browse a Test Block's version history, diff two versions, or copy one version's assertions.
   version: 1.0.0
 ---
 
