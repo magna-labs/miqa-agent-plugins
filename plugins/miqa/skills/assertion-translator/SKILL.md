@@ -1,6 +1,8 @@
 ---
 name: assertion-translator
 description: Translate a Python analysis script or natural-language request into MIQA Output Explorer assertions and a coverage report. Use when a user asks for MIQA assertions, Output Explorer checks, a translation of analysis code or stated requirements into MIQA tests, test/check suggestions for one or two executions, or help designing what checks a Test Block should contain (this skill drafts the assertions content only — see the Publish gate for what it never creates).
+metadata:
+  summary: Turn an analysis script or a plain-English request into Output Explorer assertions.
 ---
 
 # Assertion Translator

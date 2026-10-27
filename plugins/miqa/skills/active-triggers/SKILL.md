@@ -2,6 +2,7 @@
 name: active-triggers
 description: Use when the user asks "what's going on with my [most] active test triggers", "miqa trigger status", "why are my miqa triggers failing", or otherwise wants a status + root-cause sweep across Miqa test triggers (via a connected Miqa MCP server). Produces a fast pass/fail table first, then root-causes what's currently broken and offers to dig into anything that already recovered. Also covers "scheduled-check mode" for a recurring routine invocation — see that section for the policy a thin routine config should defer to. For "show me all results for version/docker tag X" instead, see the sibling `version-rollup` skill.
 metadata:
+  summary: Check the status of your most active test triggers and find out why any are failing.
   version: 1.17.0
 ---
 
