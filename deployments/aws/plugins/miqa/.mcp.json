@@ -2,7 +2,7 @@
   "mcpServers": {
     "miqa-mcp": {
       "type": "http",
-      "url": "https://miqa-api-v2-miqa-aws-7afc80f.zuplo.app/mcp",
+      "url": "https://miqa-mcp-aws.onrender.com/mcp",
       "headers": {
         "Authorization": "Bearer ${user_config.api_key}"
       }
