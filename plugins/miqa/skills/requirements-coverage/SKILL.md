@@ -69,10 +69,25 @@ unless a tool told you.
 
 Terminal first: counts by class, then a table with one row per requirement (ID, requirement, class, covering checks
 and block, one line of why), then the gaps with a one-line draft for each, and the requirements a check cannot test.
-Say what you did not read: blocks you did not open, runs you did not check. Offer a private page once; when asked,
-publish a private artifact with the counts, the table and the gaps. Say that it is private and that others cannot
-open it until it is shared. State in the page that it records what the checks do and makes no claim about whether a
-requirement is met, or about regulatory or audit status. Do not publish without a yes.
+Say what you did not read: blocks you did not open, runs you did not check.
+
+## Optional private page
+
+Offer it once. When asked, publish a private artifact laid out like this:
+
+- **Tiles** across the top: covered, partly covered, not covered, in that order, with a count each. Add a fourth for
+  requirements a check cannot test only if there are any.
+- **A table**, one row per requirement: its ID, the requirement in the user's own words, a status pill (green for
+  covered, amber for partly covered, red for not covered), the covering checks with their block, and one line of why.
+  For a gap, the covering-checks cell says "no check".
+- **A "close the gaps" card** with the one-line draft for each gap or partial. No threshold values.
+- **A list of requirements a check cannot test**, set apart from the gaps.
+- **A footer** with what was read (blocks and runs), what was not read, and the date.
+
+Use theme-aware colors, keep block and run ids as plain text without links, and anonymize on request (generic
+pipeline names, no registry paths). Say that the page is private and that others cannot open it until it is shared.
+State in the page that it records what the checks do and makes no claim about whether a requirement is met, or about
+regulatory or audit status. Do not publish without a yes.
 
 ## Never
 
