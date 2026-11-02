@@ -2,6 +2,7 @@
 name: version-rollup
 description: Use when the user asks to "show all results for version/docker tag X", "get me everything that ran on build X", or otherwise wants a rollup of every Miqa test chain run for one specific version/docker tag (via a connected Miqa MCP server) — across every component and test chain, not scoped to a single trigger. Produces a per-check tally table, then flags anything failing or warning.
 metadata:
+  summary: Roll up every test chain run for one version or docker tag and flag failures.
   version: 1.1.0
 ---
 

@@ -2,6 +2,7 @@
 name: metric-trends
 description: Use when the user wants to understand how Miqa metrics changed over time — "how has X changed across versions", "when did this metric move", "show me the history/trend of these results", "how much does this vary run to run", "chart these over builds", or wants historical values summarized or visualized for a pipeline, test chain or test block (via a connected Miqa MCP server). Pulls the history, cleans it, summarizes each metric (range, variation, where it changed), investigates a change on request, and offers a chart. Not for a single build's results (use version-rollup) or a trigger's current health (use active-triggers).
 metadata:
+  summary: See how metrics changed across versions and runs, with an optional chart.
   version: 0.1.0
 ---
 

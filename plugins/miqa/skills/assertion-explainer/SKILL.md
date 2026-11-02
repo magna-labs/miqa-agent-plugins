@@ -2,6 +2,7 @@
 name: assertion-explainer
 description: Use when the user asks "what is this test block testing", "explain these assertions", "what does this check do", "walk me through this Test Block", or pastes/references a Miqa Output Explorer assertions JSON blob (from a connected TestBlock, a paste, or one already fetched earlier in the conversation) and wants a plain-English readout. The reverse direction of assertion-translator — takes an already-written assertions blob and explains what it actually checks, grounded in live Output Explorer vocabulary and Miqa docs rather than guessed from memory.
 metadata:
+  summary: Explain in plain English what a Test Block's assertions check.
   version: 1.1.0
 ---
 

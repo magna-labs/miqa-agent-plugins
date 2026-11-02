@@ -34,9 +34,10 @@ jobs:
       - name: Assemble
         run: |
           find target -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
-          cp -R source/deployments/${{ matrix.deployment }}/. target/
           mkdir -p target/plugins/miqa
           cp -R source/plugins/miqa/skills target/plugins/miqa/skills
+          # deployment files last so a deployment skill adds to or replaces a shared one
+          cp -R source/deployments/${{ matrix.deployment }}/. target/
       - name: Commit and push
         working-directory: target
         run: |

@@ -2,6 +2,7 @@
 name: manual-repro-execution
 description: Use whenever a user wants a known-bad output file (a bug repro attachment, a hand-crafted edge case, a customer-supplied sample) turned into a real Miqa execution so a check can be proven against it — not a routine pipeline run. Trigger phrases include "attach this bug's file as a manual execution", "add this repro to Miqa and test it", "create a regression test from this ticket's attachment", "upload this sample and check it against BTR-1". Creates a one-off manual-upload ComponentVersion, an execution against the right dataset, uploads the file via signed URL, verifies the relevant check against it, then wires the check into a Test Block — asking the user at every genuinely case-specific fork (which pipeline/dataset, which check to reuse, which Test Block) rather than guessing.
 metadata:
+  summary: Upload a known-bad output file as a manual execution and prove a check against it.
   version: 1.1.0
 ---
 
