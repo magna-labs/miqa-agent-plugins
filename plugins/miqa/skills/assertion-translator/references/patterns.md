@@ -26,6 +26,46 @@ validation alone will not catch this mistake. Put every check of the same `check
 group's `checks` array, even when they answer unrelated reviewer questions — do not split one
 check_type across multiple invented groups.
 
+## Version-over-version result comparisons
+
+To gate on how a postprocessor's scalar result moved between versions, use `paired_postproc_results`
+(its own top-level group). A static `postproc_results` check only sees the test side and cannot
+compare. Copy `processor_key` and `item_type` from the block's existing `postproc_results` checks,
+and `stat` field names (e.g. `f1_snp`, `sensitivity_snp`, `precision_non_snp`) from their `stat`
+values with the `data.` prefix swapped for `data_test.` / `data_baseline.`:
+
+```json
+{
+  "paired_postproc_results": {
+    "report": true,
+    "checks": [
+      {
+        "check_type": "paired_postproc_results",
+        "item_type": "outputfolder",
+        "processor_key": "rtg-vcf-eval-tn-1954",
+        "name": "SNP F1 change vs release series <= 1%",
+        "description": "Did SNP F1 move more than 1% (relative) from the baseline?",
+        "stat": "abs(data_test.f1_snp - data_baseline.f1_snp) / data_baseline.f1_snp",
+        "relationship": "gt",
+        "static": 0.01,
+        "failtype": "fail",
+        "versions": [-1]
+      }
+    ]
+  }
+}
+```
+
+- `relationship: "gt"` with `static` is the gate: it fires when the change exceeds the limit. The
+  expression above is a relative, two-sided change. For a drop-only gate use
+  `(data_baseline.x - data_test.x) / data_baseline.x`. For an absolute change drop the division.
+- Confirm "relative vs absolute", "either direction vs drop only" and the `failtype` with the user
+  when the request does not say. Do not assume `fail`.
+- The group key and `check_type` must both be `paired_postproc_results`. The wrong check type
+  `postproc_paired_postproc_results` is rejected as "not an expected check type".
+- `versions`: see "Inherit the comparison baseline" in `SKILL.md`. The example shows `[-1]` only
+  because it has no sibling checks to inherit from.
+
 ## Common gotchas
 
 * Repeated `file_rules`/`delimiter`/`comment_character`/`configuration` across checks in one group →
