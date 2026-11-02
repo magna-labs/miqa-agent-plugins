@@ -1,9 +1,9 @@
 ---
 name: offline-runs-to-test
-description: Use when the user has results from runs that happened outside Miqa and wants them in Miqa, e.g. "I have outputs for these samples in a bucket", "bring these offline runs into Miqa", "set up executions for these samples", "start from these output folders and make a test" (via a connected Miqa MCP server). Takes a list of samples (or an existing dataset group) with where each sample's outputs live. Creates an offline version and one execution per sample, and can go on to create missing datasets, a dataset group, and a test block, chain and linked chain run. Asks what the pipeline requires for dataset metadata. Writes only after confirmation.
+description: Use when the user has results from runs that happened outside Miqa and wants them in Miqa, e.g. "I have outputs for these samples in a bucket", "bring these offline runs into Miqa", "set up executions for these samples", "start from these output folders and make a test" (via a connected Miqa MCP server). Takes a list of samples (or an existing dataset group) with where each sample's outputs live. Creates an offline version and one execution per sample, and can go on to create missing datasets, a dataset group, and a test block, chain and linked chain run. Asks what the pipeline requires for dataset metadata. Samples can come from a paste or a csv/excel/json/yaml file. Has a quick mode (one confirmation, a generic "outputs have at least 1 file" check, a report page) for "quick offline test" requests. Writes only after confirmation.
 metadata:
   summary: From samples and output locations to executions, a group and a passing test.
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # Offline Runs to Test
@@ -15,6 +15,51 @@ belongs in this file.
 
 Tool names differ between deployments (some carry an `api_` prefix). This file names the operations in words; use
 whichever tool name the connected server offers. Call `get_org_context` first where it exists.
+
+## Quick mode
+
+Use when the user asks for the quick, easy or one-confirmation path, or just wants a test around their outputs with no
+custom checks. It runs stages 1 to 5 below end to end with one confirmation and a fixed, generic check. Anything
+custom (own checks, copy a block, hand-chosen metadata) uses the full procedure instead.
+
+**Inputs.** Samples and output locations come from a paste, from a file (csv, tsv, xlsx, json or yaml), or from an
+existing dataset group. Read a file with a script, never paste its contents into the conversation. Use `csv`, `json`,
+`yaml` or `openpyxl` only if already importable; if one is missing, say so and ask for a csv instead of installing
+anything. Find columns by header, case-insensitive:
+- sample: `sample`, `sample_name`, `name`, `dataset`, `datasource`
+- location: one column holding `bucket/folder`, `s3://bucket/folder` or `gs://bucket/folder`, or separate `bucket` and
+  `folder` columns; optional `prefix` or `file_prefix`; optional `pipeline`
+- any other column is a metadata candidate: used only if its header matches a field in the pipeline's dataset schema,
+  and only for datasets this run creates. Ignored columns are listed in the plan.
+If a column choice is ambiguous, state the choice in the plan instead of asking.
+
+**Names.** Use the interactive question tool in two steps, because the second uses the first: (1) version name, default
+`offline-<YYYY-MM-DD>`; (2) test name, with options built from the chosen version name (`<version> any-file-exists`,
+`<version> outputs-not-empty`, `<version> smoke`). The dataset group is `<test name> group`; do not ask.
+
+**One confirmation.** Do the read-only work first (stage 1 matching, offline-version options, the dataset schema if any
+sample is missing; strip a leading `s3://` or `gs://` and split `bucket/folder` at the first slash). Print one plan with
+counts of everything to be created, the input source and column mapping, what will not be touched, and the assumptions
+in force: new datasets get file metadata or else blank metadata and no files; the default workflow variant is used;
+no file prefix unless given; the check below is the only check; the run picks up every sample in the group; and which
+org requests run in if it could not be selected. Ask once. A yes covers every write in the plan, the clipboard copy and
+the private report page.
+
+**Create**, in this order, stopping at the first failure: missing datasets, offline version, executions, group, then the
+test block through a chain (`create_through: "chain"`, the group, the first execution, the chosen test name) with
+`{"file_collection": {"report": true, "checks": [{"name": "Outputs should have at least 1 file", "check_type": "file_collection", "stat": "data.total_count > 0", "detail_display_stat": "data.total_count", "failtype": "fail"}]}}`
+then find the chain run by the chain name.
+
+**Then, without waiting for the user:**
+1. Say it is done: copy the new test chain link to the clipboard (`pbcopy` on macOS; otherwise print it) and list every
+   link the server returned.
+2. Recheck: read the run environment, then the results. If the summary is still generating, retry up to 3 more times
+   with a short wait, then continue with the check marked pending.
+3. Publish a private report page from `report-template.html` in this folder (load the artifact design guidance first,
+   fill the placeholders, delete sections that do not apply). Publish it even if the result is pending.
+4. Finish with the check result as the server reported it, the report link, and a question: now that the test exists,
+   do they want to build assertions around their actual data? If yes, use the `assertion-translator` skill, and create
+   nothing until it has its own confirmation.
 
 ## Inputs
 
