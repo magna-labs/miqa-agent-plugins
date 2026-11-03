@@ -38,8 +38,8 @@ Either mode takes one version or a baseline and a test version.
   (a block created with a single `execution_id` self-compares). Any check type is
   allowed, including comparative checks (`"versions": [-1]`), and comparative checks will pass by construction (a
   version compared with itself), apart from deliberate negative cases. Say in the report that comparative checks tell the
-  user nothing until a second version exists. This path has not been exercised end to end in a real chain run; the
-  ad-hoc self-compare has.
+  user nothing until a second version exists. Tested on 3 Nov 2026 in a real chain run (awstest, pipeline 219): one
+  version, five samples, four single-execution checks and three comparative checks all evaluated, and all seven passed.
 
 ## Stay live (both modes)
 
