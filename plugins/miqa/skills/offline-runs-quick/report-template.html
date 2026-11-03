@@ -1,0 +1,147 @@
+<title>{{VERSION_NAME}} Run Report</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<!--
+  TEMPLATE for offline-runs-quick. Copy, replace every {{PLACEHOLDER}}, delete sections that do not apply.
+  Status classes: use "ok" (check passed), "bad" (failed or errored) or "wait" (pending) on .outcome, and on each
+  .pill. Use plain words the server returned.
+-->
+<style>
+/* Layout: header band, outcome card, link buttons, what was created, samples, check card, assumptions. */
+:root {
+  --bg: #f4f6f9; --surface: #ffffff; --fg: #18202c; --muted: #596579; --line: #dce1e9;
+  --accent: #0f5bd8; --accent-fg: #ffffff;
+  --ok-bg: #dcf2e4; --ok-fg: #14603a; --ok-edge: #2f9c63;
+  --bad-bg: #fbe0e0; --bad-fg: #8f1d1d; --bad-edge: #d04a4a;
+  --wait-bg: #fff1cc; --wait-fg: #7a5200; --wait-edge: #d9a21b;
+  --band: #14233b; --band-fg: #eef3fb;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f131a; --surface: #181e28; --fg: #e8edf5; --muted: #98a4b8; --line: #28303e;
+    --accent: #7fb0ff; --accent-fg: #0b1220;
+    --ok-bg: #12301f; --ok-fg: #8fdcae; --ok-edge: #2f9c63;
+    --bad-bg: #3a1717; --bad-fg: #f1a3a3; --bad-edge: #d04a4a;
+    --wait-bg: #382d10; --wait-fg: #f2cd73; --wait-edge: #d9a21b;
+    --band: #0a1220; --band-fg: #eef3fb; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f131a; --surface: #181e28; --fg: #e8edf5; --muted: #98a4b8; --line: #28303e;
+  --accent: #7fb0ff; --accent-fg: #0b1220;
+  --ok-bg: #12301f; --ok-fg: #8fdcae; --ok-edge: #2f9c63;
+  --bad-bg: #3a1717; --bad-fg: #f1a3a3; --bad-edge: #d04a4a;
+  --wait-bg: #382d10; --wait-fg: #f2cd73; --wait-edge: #d9a21b;
+  --band: #0a1220; --band-fg: #eef3fb; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.55; margin: 0; }
+.band { background: var(--band); color: var(--band-fg);
+  padding-block: 28px 56px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+main { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-bottom: 40px; }
+.inner { max-width: 780px; margin: 0 auto; }
+.band .inner > * { margin: 0; }
+.eyebrow { font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.7; }
+h1 { font-size: 1.75rem; line-height: 1.2; margin: 6px 0 4px; text-wrap: balance; }
+.meta { opacity: 0.8; font-size: 0.9rem; }
+main .inner { margin-top: -32px; display: flex; flex-direction: column; gap: 20px; }
+h2 { font-size: 0.78rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; min-width: 0; }
+.outcome { border-left-width: 6px; display: flex; flex-direction: column; gap: 4px; }
+.outcome strong { font-size: 1.15rem; }
+.outcome.ok { border-left-color: var(--ok-edge); } .outcome.bad { border-left-color: var(--bad-edge); } .outcome.wait { border-left-color: var(--wait-edge); }
+.pill { display: inline-block; font-family: var(--font-mono); font-size: 0.78rem; padding: 1px 9px; border-radius: 999px; }
+.pill.ok { background: var(--ok-bg); color: var(--ok-fg); } .pill.bad { background: var(--bad-bg); color: var(--bad-fg); } .pill.wait { background: var(--wait-bg); color: var(--wait-fg); }
+.buttons { display: flex; flex-wrap: wrap; gap: 10px; }
+.btn { display: inline-block; padding: 8px 14px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--accent); text-decoration: none; font-weight: 600; }
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.btn:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.steps li { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: baseline; }
+.steps .what { min-width: 0; overflow-wrap: anywhere; }
+.steps .tag { font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted); }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 8px 12px 8px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font-size: 0.76rem; color: var(--muted); font-weight: 600; }
+code { font-family: var(--font-mono); font-size: 0.86em; overflow-wrap: anywhere; }
+.muted { color: var(--muted); }
+details summary { cursor: pointer; font-weight: 600; }
+details ul { margin: 10px 0 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 6px; }
+a { color: var(--accent); overflow-wrap: anywhere; }
+@media (prefers-reduced-motion: no-preference) { .btn { transition: opacity 0.15s; } .btn:hover { opacity: 0.85; } }
+</style>
+
+<div class="band"><div class="inner">
+  <p class="eyebrow">{{PIPELINE_NAME}} &middot; pipeline {{PIPELINE_ID}}</p>
+  <h1>{{TEST_NAME}}</h1>
+  <p class="meta">Version {{VERSION_NAME}} &middot; {{SAMPLE_COUNT}} samples &middot; {{DATE}}</p>
+</div></div>
+
+<main><div class="inner">
+
+  <!-- Outcome: class ok | bad | wait. Headline and one sentence in the server's words. -->
+  <section class="card outcome {{OUTCOME_CLASS}}">
+    <strong>{{OUTCOME_HEADLINE}}</strong>
+    <span class="muted">{{OUTCOME_DETAIL}}</span>
+  </section>
+
+  <section>
+    <h2>Open it</h2>
+    <div class="buttons">
+      <a class="btn primary" href="{{TEST_CHAIN_URL}}">Test chain {{TEST_CHAIN_ID}}</a>
+      <a class="btn" href="{{CHAIN_RUN_URL}}">Chain run {{CHAIN_RUN_ID}}</a>
+      <a class="btn" href="{{TEST_BLOCK_URL}}">Test block {{TEST_BLOCK_ID}}</a>
+      <a class="btn" href="{{GROUP_URL}}">Dataset group {{GROUP_ID}}</a>
+      <a class="btn" href="{{VERSION_URL}}">Offline version</a>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>The check</h2>
+    <p style="margin:0 0 6px"><span class="pill {{CHECK_CLASS}}">{{CHECK_STATUS}}</span> &nbsp;{{CHECK_NAME}}</p>
+    <code>{{CHECK_RULE}}</code>
+    <p class="muted" style="margin:8px 0 0">{{CHECK_NOTE}}</p>
+  </section>
+
+  <section class="card">
+    <h2>Samples</h2>
+    <div class="scroll"><table>
+      <thead><tr><th>Sample</th><th>Dataset</th><th>Execution</th><th>Status</th><th>Dataset was</th></tr></thead>
+      <tbody>
+        <!-- one row per sample -->
+        <tr><td>{{SAMPLE}}</td><td>{{DATASET_ID}}</td><td>{{EXECUTION_ID}}</td><td><span class="pill ok">{{STATUS}}</span></td><td>{{CREATED_OR_EXISTING}}</td></tr>
+      </tbody>
+    </table></div>
+    <p class="muted" style="margin:10px 0 0">Outputs read from <code>{{OUTPUT_LOCATION}}</code></p>
+  </section>
+
+  <section class="card">
+    <h2>What was created</h2>
+    <ul class="steps">
+      <!-- one li per item; tag is "new" or "existing" -->
+      <li><span class="what">{{ITEM}}</span><span class="tag">{{new|existing}}</span></li>
+    </ul>
+  </section>
+
+  <section class="card">
+    <details>
+      <summary>Assumptions made</summary>
+      <ul><li>{{ASSUMPTION}}</li></ul>
+    </details>
+  </section>
+
+  <section class="card">
+    <details>
+      <summary>Not verified, and what was left alone</summary>
+      <ul><li>{{NOT_VERIFIED}}</li></ul>
+    </details>
+  </section>
+
+  <section class="card">
+    <h2>Next</h2>
+    <p style="margin:0">The only check so far is that outputs are not empty. Ask Claude to build assertions around your actual data.</p>
+  </section>
+
+</div></main>
