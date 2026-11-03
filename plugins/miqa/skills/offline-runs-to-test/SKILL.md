@@ -248,7 +248,7 @@ Show what each stage will create and wait for a yes before it writes. Report eve
    - Prompt the user for each sample's value for each metadata field. If the schema does not mark which fields are
      required, ask for all of them and allow blanks. Do not invent values.
    - Datasets for offline runs need no files. Do not ask for file paths unless the user wants them.
-   - Create the datasets, then redo stage 2 for the new names. (Untested: this stage has not been run end to end.)
+   - Create the datasets, then redo stage 2 for the new names.
 4. **Dataset group (optional).** Create a group from the matched datasets with a name the user chooses, and return its
    link. A test over several samples needs this, because a test block built from one execution alone makes a
    one-sample group.
@@ -263,9 +263,9 @@ Show what each stage will create and wait for a yes before it writes. Report eve
    - **Copy a block.** Read the source block's current version (the one flagged current, not the newest) and pass its
      assertions with the new group. If any check compares with a baseline, say that with one execution it compares
      with itself and will always pass; a real comparison needs a baseline execution and a test execution, passed
-     together. (Untested.)
+     together.
    - **From a request.** Use the `assertion-translator` skill to draft the assertions from what the user describes,
-     prove them as in `references/proving-checks.md`, show them, then create the block with them. (Untested.)
+     prove them as in `references/proving-checks.md`, show them, then create the block with them.
    - **Use an existing block directly** is not supported. It needs a route that does not exist yet. Say so, and offer
      the options above instead.
 6. **Check the result.** Read the new chain run's environment: every sample's execution should appear with status
