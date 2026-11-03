@@ -2,7 +2,7 @@
 name: offline-runs-to-test
 description: Use when the user has results from runs that happened outside Miqa and wants them in Miqa, e.g. "I have outputs for these samples in a bucket", "bring these offline runs into Miqa", "set up executions for these samples", "start from these output folders and make a test", "quick offline test", "just make a test from these output folders", "compare these two versions of the same samples", "offline runs from this spreadsheet/csv/json/yaml" (via a connected Miqa MCP server). Takes samples with where each sample's outputs live, for one version or for a baseline and a test version, as a paste, a csv/excel/json/yaml file, parent folders to discover samples in, or an existing dataset group. Creates an offline version (or two) and one execution per sample, and can go on to create missing datasets, a dataset group, and a test block, chain and linked chain run. Has two modes. Quick mode asks only for version and test names, lists its assumptions, asks ONE confirmation, creates everything end to end, narrates as it goes, copies the chain link, rechecks the results and publishes a private report page; its checks are one basic "outputs have at least 1 file" check, checks suggested from the real files, or checks translated from the user's requirements, and anything beyond the basic check is run on real pairs and controls before it is saved. Step-by-step mode asks for approval at each stage and covers hand-chosen dataset metadata, executions only, and copying an existing block. Writes only after confirmation.
 metadata:
-  summary: From samples and output locations to executions, a group and a tested chain run, in a quick one-confirmation mode or step by step.
+  summary: From samples and output locations to executions, a group and a chain run with checks, in a quick one-confirmation mode or step by step.
   version: 0.3.0
 ---
 
@@ -38,8 +38,7 @@ Either mode takes one version or a baseline and a test version.
   (a block created with a single `execution_id` self-compares). Any check type is
   allowed, including comparative checks (`"versions": [-1]`), and comparative checks will pass by construction (a
   version compared with itself), apart from deliberate negative cases. Say in the report that comparative checks tell the
-  user nothing until a second version exists. Tested on 3 Nov 2026 in a real chain run (awstest, pipeline 219): one
-  version, five samples, four single-execution checks and three comparative checks all evaluated, and all seven passed.
+  user nothing until a second version exists.
 
 ## Stay live (both modes)
 
@@ -173,7 +172,7 @@ Narrate with counters.
 3. One execution per sample per version, with bucket, folder and prefix.
 4. Dataset group from the sample dataset ids (the overlap only, if the lists differed), associated with the pipeline.
 5. **Checks.** Basic: go straight to step 6. Suggested or from requirements: **draft the checks by following the
-   `miqa:assertion-translator` skill, not from memory or from the gotchas in `references/proving-checks.md`.** Invoke
+   `miqa:assertion-translator` skill, not from memory or from the expression notes in `references/proving-checks.md`.** Invoke
    it before writing any check. It requires: the Miqa docs lookup for each topic, the live vocabulary, its patterns
    reference, `inspect_execution_outputs` on the real executions (both of them for a baseline/test pair), a
    `description` on every check, a bound value (`_precompute` plus `detail_display_stat`) for every Boolean threshold
@@ -181,8 +180,8 @@ Narrate with counters.
    the `check_type` shared by every check inside that group** (comparative checks live in `paired_file_collection`,
    `paired_tabular_mdo_eval`, `file_collection_compare` and so on, never in a group with a made-up name such as `paired`
    or `metrics`); the schema validator does not catch this. Then read `references/proving-checks.md` and prove the
-   checks before step 6, because a test block needs its checks when it is created. The gotchas there only add what was
-   seen on specific deployments; they do not replace the translator. With one version, use the same execution as
+   checks before step 6, because a test block needs its checks when it is created. The expression notes there only add what
+   can differ between deployments; they do not replace the translator. With one version, use the same execution as
    baseline and test (see "One version or two").
 6. Test block through a chain: `create_through: "chain"`, `datasource_group_id` = the group, `test_name` = the chosen
    name. One version: `execution_id` = the first execution. Two versions: `baseline_execution_id` and
@@ -190,7 +189,8 @@ Narrate with counters.
    for the test (newest) version.
 7. Find the chain run(s) by chain name.
 
-Changing the block afterwards is a known gap: read `references/changing-the-block.md` before offering it.
+To change the block after it is created, or to apply an updated block to an existing run, read
+`references/changing-the-block.md` first.
 
 Basic assertions (fail type `warn`):
 `{"file_collection": {"report": true, "checks": [{"name": "Outputs should have at least 1 file", "check_type": "file_collection", "stat": "data.total_count > 0", "detail_display_stat": "data.total_count", "failtype": "warn"}]}}`
