@@ -35,13 +35,23 @@ chain and say so. Both runs must be of the same test chain.
    can disagree with the image that ran when a version was edited in place or made as a one-off. When a label looks
    wrong or two columns share a tag, read one execution's steps log (`get_signed_url` for `_MIQA_STEPSLOG.txt`) and
    quote the image it ran. Say which source each label came from.
+   **Stop if the later run made no outputs.** If its executions failed (status `Failed`, no output files), or its checks
+   are INCOMPLETE and it has no saved tables, there is nothing to compare. Say so, quote the execution status and the
+   failing check, point to the `active-triggers` skill for the cause, and go no further.
 2. **Find the baseline.** The environment shows `default_baseline_tbr_id` and the status event's `baseline_used`.
    Those are test block run ids, not run ids: find the run that contains that block run by reading the environments
    of candidate runs. Read the baseline from each run, because two runs of one trigger can use different baselines. If
-   the environment shows none, the checks may not have finished: wait and read it again before assuming one.
+   the environment shows none, the checks may not have finished: wait and read it again before assuming one. Some
+   checks compare with the previous run (`versions: [-1]`) and have no fixed baseline. Then the baseline is the run
+   before each run, it moves, and "new" and "gone" mean against that previous run. Read which kind each check uses from
+   the assertions in the environment, and say it.
 3. **Check results and per-sample numbers.** `get_test_chain_run_results` for both runs: which checks fail, warn or
    pass, and the aggregate values. `get_all_metrics` with `metric_category=test_assertion`, `include_pp_results=true`
-   and `version_field=id` gives per-sample precision, sensitivity and F1 as `<check>|result` rows. Version columns are
+   and `version_field=id` gives per-sample precision, sensitivity and F1 as `<check>|result` rows. A full pull can run
+   to tens of thousands of characters: narrow it with `tc_ids`, `metric_parent` and a small `limit`, use `summary=true`
+   first, or save it to a file and read it with code. Check names can carry a threshold (`SNP F1 >= 0.9786|result`):
+   the value in the row is the measured one, and an edited threshold splits the history into two rows, so strip the
+   threshold when merging. A chain can have a single sample, and then "per sample" is one value. Version columns are
    workflow version ids and can look alike, so match a run to its column by comparing the run's own aggregate values.
    The stored values have four decimals: say that a change below 0.0001 in one sample cannot show. Report real
    values and signed differences, never multiples of the last digit.
@@ -59,6 +69,11 @@ chain and say so. Both runs must be of the same test chain.
    code, with Python run as `python3 -I`, and never print rows. Check that the offsets are contiguous and that the row
    count equals the table's `total_rows`. Identical table ids on two runs suggest identical content, but compare the
    rows before saying so.
+   **Check each table's `source`.** `full` means every row is available. `stored` means only the first rows were kept
+   (often 200): the `note` gives the real size, and `total_rows` shows only the stored count. A stored table cannot be
+   compared call by call. Compare the real sizes, say that the call-level comparison is not possible, and do not
+   report percentages from the partial rows as if they described the whole table. Tables can also be per dataset
+   (`is_aggregate` false) as well as across all samples: read each one and label it.
 6. **Analyse with code.** Match calls on sample, chromosome, position, REF and ALT. Do everything below once for the
    false positives and once for the false negatives. For false negatives, "new" means missed on this run and not at the
    baseline, and "gone" means missed at the baseline and found now. Do not merge the two kinds into one total.
@@ -112,6 +127,7 @@ Keep every deep dive to what the data shows. A pattern is a pattern, not a cause
 - the baseline each run used and how it was found;
 - which label came from which source when they disagree;
 - matching is exact on position and alleles, so a call written at a shifted position counts as one gone and one new;
+- a table that was stored in part was compared by size only;
 - when a run keeps no false-negative table, a change in sensitivity cannot be traced to calls, and the page says so;
 - quality scores are not compared unless they were pulled;
 - each build was run once, so run-to-run noise is not measured;
