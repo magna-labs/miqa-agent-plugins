@@ -1,15 +1,15 @@
 ---
 name: fp-comparison
-description: Use when the user wants to understand how the false-positive variant calls and the precision and sensitivity of a variant-calling pipeline changed between builds, e.g. "why did indel precision drop", "did the new build fix the false positives", "compare the FPs between these two runs", "what kind of calls did the fix remove", "is precision or sensitivity driving this" (via a connected Miqa MCP server). Compares a later run with an earlier run and with their baseline: precision, sensitivity and F1 per sample, then the saved false-positive tables, call by call, split by call type, size, repeat context, sample and genome region. Terminal summary first, then a private HTML page on request. Read-only. Names no cause.
+description: Use when the user wants to understand how the false-positive and false-negative variant calls and the precision and sensitivity of a variant-calling pipeline changed between builds, e.g. "why did indel precision drop", "did the new build fix the false positives", "compare the FPs and FNs between these two runs", "which calls did we start missing", "what kind of calls did the fix remove", "is precision or sensitivity driving this" (via a connected Miqa MCP server). Compares a later run with an earlier run and with their baseline: precision, sensitivity and F1 per sample, then the saved false-positive and false-negative tables (when the run keeps them), call by call, split by call type, size, repeat context, sample and genome region. Terminal summary first, then a private HTML page on request. Read-only. Names no cause.
 metadata:
-  summary: Explain how false positives, precision and sensitivity changed between two builds and their baseline.
+  summary: Explain how false positives, false negatives, precision and sensitivity changed between two builds and their baseline.
   version: 0.1.0
 ---
 
-# False-Positive Comparison
+# False-Positive and False-Negative Comparison
 
 Put three runs side by side: the baseline, an earlier build and a later build. Say how precision, sensitivity and F1
-moved, and which false-positive calls appeared, stayed or went away. It describes what the outputs show. It does not
+moved, and which false-positive and false-negative (missed) calls appeared, stayed or went away. It describes what the outputs show. It does not
 say why a build behaves differently, and whether a change is acceptable is the owner's call. Nothing about any
 particular pipeline belongs in this file.
 
@@ -47,16 +47,21 @@ chain and say so. Both runs must be of the same test chain.
    values and signed differences, never multiples of the last digit.
 4. **Say whether precision or sensitivity moved.** Take the mean over samples for each statistic at the baseline, the
    earlier build and the later build, with signed differences. When the change is mostly in one of them, say so with
-   the numbers. Compare the share of the precision change that came back with the share of the false positives that
-   went away: when they agree, say they agree.
-5. **Read the false-positive tables.** `list_test_chain_run_tables` for each run. Look for the table of all false
-   positives and the table of calls that differ from the baseline (it carries an `overlap_status` column). Check the
+   the numbers. Precision moves with false positives and sensitivity moves with false negatives. Compare the share of the precision
+   change that came back with the share of the false positives that went away, and the same for sensitivity and false
+   negatives: when they agree, say they agree.
+5. **Read the false-positive and false-negative tables.** `list_test_chain_run_tables` for each run. Look for the
+   table of all false positives, the table of all false negatives if the run keeps one, and for each the table of
+   calls that differ from the baseline (it carries an `overlap_status` column). A run may keep only false positives.
+   Say which kinds exist for each run, and treat the two kinds separately from here on. Check the
    columns with a three-row read first, and ask only for the columns needed (sample, chromosome, position, REF, ALT,
    and any repeat columns). Read every page, 1000 rows at a time. The pages are saved to files: process them with
    code, with Python run as `python3 -I`, and never print rows. Check that the offsets are contiguous and that the row
    count equals the table's `total_rows`. Identical table ids on two runs suggest identical content, but compare the
    rows before saying so.
-6. **Analyse with code.** Match calls on sample, chromosome, position, REF and ALT.
+6. **Analyse with code.** Match calls on sample, chromosome, position, REF and ALT. Do everything below once for the
+   false positives and once for the false negatives. For false negatives, "new" means missed on this run and not at the
+   baseline, and "gone" means missed at the baseline and found now. Do not merge the two kinds into one total.
    - Per run: total, new against the baseline, gone against the baseline (from `overlap_status`). Both runs should
      reconstruct the same baseline total; if not, they use different baselines.
    - Classify each call: insertion, deletion or other from the allele lengths; size bucket; repeat unit (single base
@@ -71,10 +76,10 @@ chain and say so. Both runs must be of the same test chain.
      position), gone and new calls at the same site (an allele swap), the share seen in more than one sample, and
      clusters in the genome (windows of 1 Mb against a Poisson expectation from the counts).
 7. **Terminal summary first.** The check status, the mean precision, sensitivity and F1 table, the call counts (both
-   runs and the baseline), the largest findings with numbers, and what was not compared. Then offer the deeper
+   runs and the baseline), the largest findings with numbers (false positives and false negatives each), and what was not compared. Then offer the deeper
    dives under "Go deeper" and a private page, once each.
 8. **Page, on request.** A private HTML page: the count strip and check table, the precision and sensitivity table
-   with a dot plot per sample on a common scale, the baseline view (callouts, share by repeat type, per-sample stacked
+   with a dot plot per sample on a common scale, the baseline view (one for false negatives too, when they exist) (callouts, share by repeat type, per-sample stacked
    bars, a heatmap of the share that is new by repeat length), the run-against-run view (flow bar, per-sample table,
    size chart, heatmap of the share that went away), a list of limits, and sources with run ids, table titles and the
    read date. Label builds with the date-prefixed tag. Use real sample names for the team and anonymize only if the
@@ -92,7 +97,7 @@ The checklist in step 6 is a start. Treat a finding as a lead and test the obvio
   whose label does not match its image, a baseline that differs from the one assumed: confirm with the run
   environment, the results and an execution log before saying it.
 - **Reconcile before explaining.** The change in false-positive counts, the change in precision and the per-sample
-  numbers should tell the same story. Say when they do and when they do not.
+  numbers should tell the same story, and likewise false negatives with sensitivity. Say when they do and when they do not.
 - **Follow a sample or region that stands out.** The sample with the largest change, a window with many changes, a
   group that recovers less than the rest: read a few concrete calls (position, alleles, context) and describe them.
 - **Offer these after the summary, and run the ones the user picks:** compare quality or model scores of the gone,
@@ -107,6 +112,7 @@ Keep every deep dive to what the data shows. A pattern is a pattern, not a cause
 - the baseline each run used and how it was found;
 - which label came from which source when they disagree;
 - matching is exact on position and alleles, so a call written at a shifted position counts as one gone and one new;
+- when a run keeps no false-negative table, a change in sensitivity cannot be traced to calls, and the page says so;
 - quality scores are not compared unless they were pulled;
 - each build was run once, so run-to-run noise is not measured;
 - a cause for any difference is not established by this comparison.
