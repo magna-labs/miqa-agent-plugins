@@ -1,9 +1,9 @@
 ---
 name: active-triggers
-description: Use when the user asks "what's going on with my [most] active test triggers", "miqa trigger status", "why are my miqa triggers failing", or otherwise wants a status + root-cause sweep across Miqa test triggers (via a connected Miqa MCP server). Produces a fast pass/fail table first, then root-causes what's currently broken and offers to dig into anything that already recovered. Also covers "scheduled-check mode" for a recurring routine invocation — see that section for the policy a thin routine config should defer to. For "show me all results for version/docker tag X" instead, see the sibling `version-rollup` skill.
+description: Use when the user asks "what's going on with my [most] active test triggers", "miqa trigger status", "why are my miqa triggers failing", or otherwise wants a status + root-cause sweep across Miqa test triggers (via a connected Miqa MCP server). Produces a fast pass/fail table first, then root-causes what's currently broken and offers to dig into anything that already recovered. Runs in "live" mode (default: narrated, progressively updated) or "one-try" mode (a single bounded pass that writes each table once and never goes back, for when quota or cost matters). Also covers "scheduled-check mode" for a recurring routine invocation — see that section for the policy a thin routine config should defer to. For "show me all results for version/docker tag X" instead, see the sibling `version-rollup` skill.
 metadata:
   summary: Check the status of your most active test triggers and find out why any are failing.
-  version: 1.17.0
+  version: 1.18.0
 ---
 
 # Miqa Active Trigger Triage
@@ -22,7 +22,28 @@ connected — just use it. If more than one is connected (e.g. separate
 servers per environment), ask the user which one they mean before running
 the sweep, rather than guessing from the server name.
 
+## Modes
+
+The skill runs in one of two modes. Pick it from the request; when the request doesn't say, use
+**live**.
+
+- **Live** (default) — the Procedure below as written: a status table first, narrated
+  root-causing, a deep-dive table that is re-printed as each result lands, and follow-up offers.
+  Thorough and responsive, and it keeps going back to refine and re-print, so it costs the most.
+- **One-try** — one bounded pass. Every deliverable is written once, each trigger gets a fixed
+  investigation budget, and the run stops when the final table is posted. See "One-try mode".
+  Use it when quota or cost is the concern or nobody wants updates mid-run.
+
+Use one-try when the user says "one try", "one pass", "single pass", "quick" or "cheap" version,
+"don't keep going back", or mentions quota or budget. Use live for "live", "walk me through it" or
+"keep me posted". Name the mode in the first line of the response ("One-try sweep: ..." or "Live
+sweep: ..."). Scheduled-check mode (below) is a separate, already-bounded variant; where it
+conflicts with either mode, its own rules win.
+
 ## Procedure
+
+The steps below describe live mode. In one-try mode, the overrides in "One-try mode" replace the
+steps they name.
 
 1. **List and filter.** Call `list_test_triggers`. Keep only `disabled: false`
    entries — never spend budget investigating disabled triggers.
@@ -630,6 +651,55 @@ the sweep, rather than guessing from the server name.
    look, trim filler next time (shorter trigger names, tighter phrasing) —
    but that trimming budget never comes from dropping a real second failure
    mode or shortening a docker tag.
+
+## One-try mode
+
+One pass, each thing written once, then stop. Live mode's cost comes from re-printing tables as
+results land, two agent spin-ups per broken trigger, open-ended digging, and follow-up offers;
+this mode removes exactly those. Anything not named below works as in the Procedure, including
+every table format, the full-docker-tag rule, and the three root-cause buckets.
+
+**Steps 1–2 are unchanged.** The step 2 window pull is the only history the rest of the run uses;
+do not re-pull it with a larger `limit`.
+
+**Step 3 — post the status table once.** Never reprint or amend it. Skip the dig-in offer for
+recovered or intermittent triggers; the Note clause is their whole treatment.
+
+**Step 4 — investigate each 🔴 trigger in a single pass, with no narration and no checkpoints.**
+Do it inline when there is one trigger. With two or more, use one agent per trigger that returns
+only its final deep-dive row (no checkpoint 1 / checkpoint 2 split, no interim lines). Each
+trigger gets this fixed set of calls, issued as one parallel batch wherever they are independent:
+
+1. `get_test_chain_run_results` on the latest failing run.
+2. `get_test_chain_run_environment` on the latest failing run.
+3. `get_test_chain_run_environment` on the most recent passing run in the step 2 window (skip if
+   the window has none).
+4. `get_test_chain_run_report`, only when 1–3 leave the bucket undecided, and only for the first
+   failing `check_name`, to read expected vs. actual. Never read the whole payload.
+
+Do not do any of: a larger history pull, the earliest-failing-run comparison, signed-file pulls,
+cross-check reconciliation, re-verifying remembered notes (do not cite memory about a trigger at
+all in this mode). The pass→fail boundary is whatever the step 2 window shows; when the window has
+no passing run, say "failing since at least TCR N" rather than looking further back.
+
+**Stop rule — never go back.** Assign a step 4 bucket only when this evidence supports it,
+and never from a check's configuration alone. When it does not, report the row as unconfirmed with
+the coarse wording from the shallow diagnosis ("possible baseline issue on `<check>`, unconfirmed",
+"execution failure: `<log line>`, unconfirmed", "content mismatch on `<check>`, magnitude
+unconfirmed") and name the single thing that would confirm it. Do not spend more calls to settle it.
+Still report a WARN found in call 1 as a demoted clause, and still report a second failure mode if
+the calls already showed one.
+
+**Step 5 — stall check with one call.** Pull one prior successful run's environment for the runtime
+baseline, not one or two. If that is not enough to call it stalled, report it as 🟢 still running.
+
+**Step 6 — post the deep-dive table once, when every trigger has returned.** No live table, no
+ping mode, no 60-second escalation, no pre-seeded `⏳ pending` rows. No artifact offer, and no
+artifact unless the user asked for one up front.
+
+**Stop after the final table.** Do not re-investigate, re-print, or refine it. If a row is
+unconfirmed, say in its cell what would confirm it. Fix a factual error in what you posted (wrong
+id, wrong tag) in one short line, but post no other follow-up unless the user asks.
 
 ## Scheduled-check mode
 
