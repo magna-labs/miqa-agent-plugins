@@ -78,7 +78,11 @@ decide. If no question applies at all, go straight to Step 4.
 2. Translate the rest. Validate with the `assertion-translator` validator. If it reports reference failures for
    variables that each check supplies through `_extends`, compare against the original block: the same failures there
    mean the live run is the real test.
-3. Run the full converted blob live. Every source check must appear in the result.
+3. Run the full converted blob live on **one sample**: every converted check, but only one sample's baseline and test
+   execution IDs. Do not run it across all samples; a large run can time out with no result, and one sample is enough
+   to show every check resolves. Every source check must appear in the result. If that run looks right, pick **one
+   more sample at random**, say which one, and run the full blob on it the same way. Stop there unless the user asks
+   for more.
 
 Practical notes:
 
@@ -91,7 +95,7 @@ Practical notes:
 
 ## Step 5 — Report and link, together
 
-Once Step 4's full live run is done, produce both in the same step, without asking permission for either: the HTML
+Once Step 4's live runs are done, produce both in the same step, without asking permission for either: the HTML
 report below, and the shareable Output Explorer link (Step 6). Put the link in the report's summary strip as well.
 If a Step 3 question is still unanswered and changes the assertions, resolve it first; do not save a link for
 assertions you know are wrong.
@@ -102,8 +106,9 @@ do not repeat the whole report.
 
 The page, in this order:
 
-1. **Summary strip:** source block, baseline and test execution IDs, checks in / checks out / approved drops, and a
-   plain-language status (for example "resolves; cannot fail yet — same execution on both sides").
+1. **Summary strip:** source block, baseline and test execution IDs, checks in / checks out / approved drops, which
+   sample(s) the live runs covered, and a plain-language status (for example "resolves; cannot fail yet — same
+   execution on both sides").
 2. **What changed and why:** a short list of the conversion decisions (what was removed, what the baseline now reads,
    any check-type change), each with its reason. This is the part a reviewer reads first.
 3. **Per-check table:** every source check, one row each — converted, converted with a change (say what), or dropped
@@ -116,7 +121,8 @@ The page, in this order:
    - Put the rest in collapsible sections, one per distinct shape (for example the shared template or variables, then
      one per kind of check), not one per near-identical check. Say how many checks each diff stands for.
    - State if the "before" was reconstructed and not byte-identical.
-5. **Unresolved issues and what this cannot prove**, including the same-execution caveat when it applies.
+5. **Unresolved issues and what this cannot prove**, including the same-execution caveat when it applies and that
+   only the named sample(s) were run, not every sample in the executions.
 6. **The proposed assertions**, in a collapsible block with a copy button.
 
 Keep the same layout and design every run so reports are comparable. Do not put anything from the report that you
