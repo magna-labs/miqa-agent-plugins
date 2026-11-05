@@ -39,8 +39,12 @@ the request hasn't already decided, it never overrides what the user actually as
    any check.
 2. Resolve the Miqa guidance with the mounted `docs_` tools. For each needed topic in
    `references/doc-paths.md`, call `docs_searchDocumentation` and read the best hit with
-   `docs_getPage` before translating. If no `docs_` tool is available, stop without writing a blob
-   and state that the deployment reports no documentation root. Never translate the DSL from memory.
+   `docs_getPage` before translating. If no `docs_` tool is available, call `get_documentation_url`.
+   If it returns a URL, say that the documentation tools are not enabled on this server (whoever
+   runs the server needs to enable them), and read the needed pages from that URL with a web fetch
+   tool if you have one; if you have none, stop without writing a blob. If it returns no URL, stop
+   without writing a blob and say the deployment has no documentation root. Never translate the
+   DSL from memory.
 3. Call `get_output_explorer_vocabulary()` once and save its payload. Use it for the schema, enum
    values, starter blurbs, and global variable names. If the tool or a vocabulary section is
    unavailable, continue where possible and record the validation that cannot run. Never hardcode

@@ -3,7 +3,7 @@ name: assertion-explainer
 description: Use when the user asks "what is this test block testing", "explain these assertions", "what does this check do", "walk me through this Test Block", or pastes/references a Miqa Output Explorer assertions JSON blob (from a connected TestBlock, a paste, or one already fetched earlier in the conversation) and wants a plain-English readout. The reverse direction of assertion-translator — takes an already-written assertions blob and explains what it actually checks, grounded in live Output Explorer vocabulary and Miqa docs rather than guessed from memory.
 metadata:
   summary: Explain in plain English what a Test Block's assertions check.
-  version: 1.1.0
+  version: 1.1.1
 ---
 
 # Miqa Assertion Explainer
@@ -63,8 +63,10 @@ reads; it never calls anything that writes or publishes.
    in the payload isn't covered by the vocabulary call, use the search-topic list in
    `../assertion-translator/references/doc-paths.md`: search the needed topic with
    `docs_searchDocumentation`, then read the best hit with `docs_getPage`. If no `docs_` tool is
-   available, continue with a partial explanation and state that the deployment reports no
-   documentation root. If neither source resolves it, say plainly that this check type/field is
+   available, call `get_documentation_url`. With a URL, read the page from it with a web fetch tool
+   if you have one; otherwise continue with a partial explanation and say the documentation tools
+   are not enabled on this server. With no URL, continue with a partial explanation and say the
+   deployment has no documentation root. If neither source resolves it, say plainly that this check type/field is
    unconfirmed rather than inventing a plausible-sounding explanation.
 
 3. **Resolve templating before interpreting semantics.** Assertions blobs
