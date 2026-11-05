@@ -3,7 +3,7 @@ name: offline-runs-to-test
 description: Use when the user has results from runs that happened outside Miqa and wants them in Miqa, e.g. "I have outputs for these samples in a bucket", "bring these offline runs into Miqa", "set up executions for these samples", "start from these output folders and make a test", "quick offline test", "just make a test from these output folders", "compare these two versions of the same samples", "offline runs from this spreadsheet/csv/json/yaml" (via a connected Miqa MCP server). Takes samples with where each sample's outputs live, for one version or for a baseline and a test version, as a paste, a csv/excel/json/yaml file, parent folders to discover samples in, or an existing dataset group. Creates an offline version (or two) and one execution per sample, and can go on to create missing datasets, a dataset group, and a test block, chain and linked chain run. Has two modes. Quick mode asks only for version and test names, lists its assumptions, asks ONE confirmation, creates everything end to end, narrates as it goes, copies the chain link, rechecks the results and publishes a private report page; its checks are one basic "outputs have at least 1 file" check, checks suggested from the real files, or checks translated from the user's requirements, and anything beyond the basic check is run on real pairs and controls before it is saved. Step-by-step mode asks for approval at each stage and covers hand-chosen dataset metadata, executions only, and copying an existing block. Writes only after confirmation.
 metadata:
   summary: From samples and output locations to executions, a group and a chain run with checks, in a quick one-confirmation mode or step by step.
-  version: 0.3.0
+  version: 0.3.1
 ---
 
 # Offline Runs to Test
@@ -47,7 +47,7 @@ whenever a step may take more than a few seconds. Keep each line to what is happ
 
 - Before a read-only phase: "Looking up the pipeline and checking which samples already exist."
 - Inside a multi-item step, give a counter: "Creating executions, 5 of 10." Print a line every few items, not every item.
-- When waiting on Miqa, say so and say what happens next: "The results summary is still generating. Retrying, 2 of 4."
+- When waiting on Miqa, say so and say what happens next: "The results summary is still generating. Retrying, 2 of 10."
 - When a step is slow by nature (results summaries, discovery of many folders), say roughly how long it should take.
 - After a batch of tool calls, one line of what came back before the next batch. No long silences.
 - Do not narrate trivia, and do not repeat what the previous line already said.
@@ -73,11 +73,20 @@ Reading a file (user's own file; read it with a script, do not paste its content
   - version: `version`, `build`, `run`. Absent means a single version.
   - location, any of: one column holding `bucket/folder`, `s3://bucket/folder` or `gs://bucket/folder`
     (`location`, `output_location`, `path`, `uri`, `url`), or separate `bucket` + `folder` (`output_folder`, `dir`)
+  - for two versions, either layout works:
+    - **long:** one row per sample per version, using the `version` column above. The first version listed is the
+      baseline.
+    - **wide:** one row per sample with a baseline location and a test location, in columns whose headers start with
+      `baseline` and `test` (for example `baseline` and `test`, `baseline_location` and `test_location`, or
+      `baseline_bucket` + `baseline_folder` and `test_bucket` + `test_folder`). The baseline column is the baseline
+      version and the test column is the test version.
+    If a file has both a `version` column and baseline/test columns, say which layout you used in the plan.
   - optional `prefix` / `file_prefix`
   - optional `pipeline`
   - every other column is a candidate **metadata** field. It is used only if its header matches a field in the
     pipeline's dataset schema, and only for datasets this run creates. Extra columns are ignored and listed in the plan.
-- json/yaml may be a list of records or a map of sample name to location or record; treat both the same way.
+- json/yaml may be a list of records or a map of sample name to location or record; treat both the same way. A record
+  may carry `baseline` and `test` keys, as in the wide layout.
 - If a column choice is ambiguous, say what you picked in the plan instead of asking.
 
 **The pipeline** (id or name): take it from the arguments, the file (a `pipeline` column) or ask once. Otherwise read it
@@ -206,9 +215,12 @@ Before any results check:
 ## Q4. Recheck the results (automatic)
 
 - Read the run environment for the test run: every sample's execution should be Done.
-- Read the run results. If the summary is still generating, retry up to 3 more times with a short wait between (say
-  "retrying, n of 4" each time); then continue with the result marked pending. Do not loop longer. Foreground `sleep` may
-  be capped; if it is blocked, just retry the call.
+- Read the run results. The summary is built in the background, usually in 2 to 3 minutes and longer when many jobs are
+  queued. Each request waits about 25 seconds before answering that it is still generating, and every request starts its
+  own report job. So ask for one run at a time, never several runs in parallel, and retry up to 10 times (about 5
+  minutes), saying "retrying, n of 10" each time. If it is still not ready, continue with the result marked pending and
+  give the chain run link so the user can open it later. Do not loop longer. Foreground `sleep` may be capped; if it is
+  blocked, just retry the call.
 - Judge results only by what the server reports. If a check errors or reports FAIL, say so plainly and offer a corrected
   new block; never edit existing ones.
 
@@ -269,8 +281,9 @@ Show what each stage will create and wait for a yes before it writes. Report eve
    - **Use an existing block directly** is not supported. It needs a route that does not exist yet. Say so, and offer
      the options above instead.
 6. **Check the result.** Read the new chain run's environment: every sample's execution should appear with status
-   Done. Then read the run's results and report each check's status. The results may still be generating; retry
-   shortly and say so if it is not ready. Do not report a run as passing before the results say so.
+   Done. Then read the run's results and report each check's status. The results may still be generating; wait for
+   them as described in the quick mode results step (one run at a time, up to 10 tries) and say so if they are not
+   ready. Do not report a run as passing before the results say so.
 
 ---
 
