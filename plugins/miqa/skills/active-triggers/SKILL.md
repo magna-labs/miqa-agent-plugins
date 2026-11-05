@@ -697,9 +697,9 @@ baseline, not one or two. If that is not enough to call it stalled, report it as
 ping mode, no 60-second escalation, no pre-seeded `⏳ pending` rows. No artifact offer, and no
 artifact unless the user asked for one up front.
 
-**Close with one line, and stop.** If any row is unconfirmed, add a single line saying how to go
-deeper, e.g. "Run active-triggers in live mode on `rc-release` (id 46f9b657) to confirm." Do not post
-corrections or refinements after the table unless the user asks.
+**Stop after the final table.** Do not re-investigate, re-print, or refine it. If a row is
+unconfirmed, say in its cell what would confirm it. Fix a factual error in what you posted (wrong
+id, wrong tag) in one short line, but post no other follow-up unless the user asks.
 
 ## Scheduled-check mode
 
