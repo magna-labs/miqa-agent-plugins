@@ -58,8 +58,10 @@ Writing is a separate, second action:
   at the end of the report.
 
 The preview path calls no write tool at all (only `api_get_test_blocks`,
-`api_get_test_block_versions`, `api_get_test_block_version`, and the
-docs/vocabulary lookups).
+`api_get_test_block_versions`, `api_get_test_block_version`, the
+docs/vocabulary lookups and, optionally, `api_run_adhoc_assertions` plus
+`get_test_chain_run_environment` for validation, which read and persist
+nothing).
 
 ## The write tool, and why this skill gates it
 
@@ -138,6 +140,30 @@ on every call (even if nothing changed). It fails if the block is locked. So:
    note that you can apply it if they say so explicitly. Do not ask a yes/no
    and do not write in this turn. The report is the thing the user approves;
    never ask for a yes on a change they have not been shown in full.
+
+   **Optional validation (only if the tool exists).** If this server exposes
+   `api_run_adhoc_assertions`, offer in one line to run the proposed
+   assertions against real executions before anyone applies them; it is
+   synchronous and persists nothing. If the tool is not available, skip this
+   silently apart from one line in the report: "Ad hoc validation is not
+   available on this server; the proposed assertions have not been run against
+   executions." Never block the report on it and never treat its absence as a
+   failure. When the user accepts (or supplies executions):
+   - Executions: use the pair the user gives (`exec_ids_test` /
+     `exec_ids_baseline`, or `tbr_id_test` / `tbr_id_baseline`). Otherwise find
+     them from the target block's latest completed run via
+     `get_test_chain_run_environment` (it lists `testblock_id`,
+     `testblockrun_id` and the baseline run). If there is no completed run, say
+     so and stop; do not guess.
+   - Run the full proposed blob (or at least every changed check) with
+     `force_recheck: true`, and show per-check outcomes next to the target's
+     current outcomes.
+   - Limit: the call overrides `versions` with the supplied baseline, so a check
+     whose `versions` is not `-1` (e.g. a release series) cannot be confirmed
+     this way. Say so; do not call it verified.
+   - A check that errors or fails to evaluate is a finding to report, not
+     something to fix silently. Do not change the proposed assertions without
+     regenerating the report.
 
 8. **Write (only after a separate, explicit apply in a new message; see
    "Preview first").** Re-confirm with a single yes/no that states: the target block
