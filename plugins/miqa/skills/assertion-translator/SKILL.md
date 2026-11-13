@@ -1,14 +1,14 @@
 ---
 name: assertion-translator
-description: Translate a Python analysis script or natural-language request into MIQA Output Explorer assertions and a coverage report. Use when a user asks for MIQA assertions, Output Explorer checks, a translation of analysis code or stated requirements into MIQA tests, test/check suggestions for one or two executions, or help designing what checks a Test Block should contain (this skill drafts the assertions content only — see the Publish gate for what it never creates).
+description: Translate a Python analysis script or natural-language request into MIQA Output Explorer assertions and a coverage report. Use when a user asks for MIQA assertions, Output Explorer checks, a translation of analysis code or stated requirements into MIQA tests, test/check suggestions for one or two executions, or help designing what checks a Test Block should contain (this skill drafts the assertions content and saves a scratch Output Explorer link — see the Publish gate for what it never creates).
 metadata:
   summary: Turn an analysis script or a plain-English request into Output Explorer assertions.
 ---
 
 # Assertion Translator
 
-Create an assertions blob and `coverage.md`. Show the coverage report to the user before offering
-to publish anything.
+Create an assertions blob and `coverage.md`, show the coverage report, and by default finish by
+saving the assertions and giving the user a link that opens them in Output Explorer.
 
 ## Domain
 
@@ -53,7 +53,8 @@ the request hasn't already decided, it never overrides what the user actually as
    or `{{ name }}`, also read `references/variables-and-precompute.md`.
 5. Normalize the source into reviewer questions, collect evidence, translate every question, and
    write both output files.
-6. Validate the blob, show `coverage.md`, and wait for explicit approval before publishing.
+6. Validate the blob, show `coverage.md`, then save it and give the user the Output Explorer link
+   (see the Publish gate). Do not wait for approval.
 
 ## Interpret the source
 
@@ -272,25 +273,25 @@ report. Record column confirmation separately.
 ## Publish gate
 
 Always write the blob and `coverage.md` after translation, even when the blob is not ready. Show
-the coverage report before offering to publish.
-
-Preview first:
+the coverage report, then take the user to Output Explorer by default. Saving is a scratch,
+shareable link only — it does not create or change a Test Block — so it does not need user approval.
 
 ```
-publish_adhoc_assertions(assertions, name, description, execution_id=None, apply=False)
+publish_adhoc_assertions(assertions, name, description, execution_id=None, apply=True)
 ```
 
 Use the script filename or a concise request-derived name. Include the source, date, and coverage
-report in the description. Publish with `apply=True` only after explicit user approval. When asking
-for that approval, describe it in plain terms the user actually asked for — a temporary, shareable
-save that can be loaded in Output Explorer — not as "publishing" a formal record. Never expose tool
-or parameter names (`apply=True`, "ad-hoc record", `publish_adhoc_assertions`) in that question. Say
-plainly that this does not create or change a Test Block — it only saves this scratch link — and
-that turning it into a real Test Block is a separate, later step if the user wants one. For example:
-"Want me to save this so it's easy to share and load into Output Explorer? This won't create a Test
-Block — it's just a shareable link. We can wire it into an actual Test Block afterward if you want
-it to persist." If the tool is unavailable, tell the user to paste the blob into Output Explorer's
-JSON tab.
+report in the description. Always show the returned Output Explorer URL to the user. If
+validation reports a `FAIL` or the save returns an error, the blob itself is broken: fix it and
+retry before showing the user anything. If it still cannot be fixed, save and link anyway, and say
+plainly what is still broken. This applies only to blob errors. An assertion that fails (or warns)
+when run against the data is not an error to fix: some checks are meant to catch bad output, so
+never weaken, drop, or rewrite an assertion just to make it pass. Report such outcomes as results,
+not problems. Never expose
+tool or parameter names (`apply=True`, "ad-hoc record", `publish_adhoc_assertions`) to the user;
+call it a shareable Output Explorer link, and mention that turning it into a real Test Block is a
+separate, later step if they want one. If the tool is unavailable, tell the user to paste the blob
+into Output Explorer's JSON tab.
 
 `publish_adhoc_assertions` takes a single `execution_id` and returns a URL with one `exec_id` query
 param — it has no baseline-execution input. When the user has shared (or the request otherwise
