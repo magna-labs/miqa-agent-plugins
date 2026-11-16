@@ -116,4 +116,3 @@ it is and why, and move on to the next. Do not force a conversion or approximate
 - Aggregate tables appear under the first dataset's results only. Tell the user where to look.
 - Existing Test Blocks often keep the per-sample table as `download_only`. If the check already does
   that, leave it as it is.
-- Do not copy customer names, bucket paths or sample identifiers into examples, notes or reports.
