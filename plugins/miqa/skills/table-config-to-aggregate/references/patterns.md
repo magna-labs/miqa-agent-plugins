@@ -14,7 +14,7 @@ the docs and say so.
 | A list of rows per sample | `data.<name>.explode()` | One row per item, sample key added as `key` (last column) |
 | A list of rows per sample, joined into one list | `data.<name>.to_key_value_list().map('value').flatten()` plus `headers` | One row per item, no sample key |
 | A preview of each file's rows (`data.rows.preview()`) | `data.<name>.explode()` | First rows of every file in one table |
-| A filtered list of rows | `data.<name>.explode().filter_custom(lambda row: ...)` | Matching rows across samples |
+| A filtered list of rows | `data.<name>.explode().filter_expr("<condition>")` | Matching rows across samples |
 | A single value per sample (string or number) | `data.<name>.explode(value_field='<column>')` | `key` plus the named column |
 | Two or more stats side by side | `Join(data.a.explode(value_field='a'), data.b.explode(value_field='b'), on='key')` | One row per sample, columns from each |
 | A dict literal or one-item list built from scalars | the same expression, reading `data.<name>` | A small summary table |

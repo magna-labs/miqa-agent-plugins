@@ -20,11 +20,11 @@ Before:
         "file_rules": {
           "pattern": ".*\\.vcf$"
         },
-        "stat": "data.rows.filter_custom(lambda row: row.FILTER == 'PASS').count > 0",
+        "stat": "data.rows.filter_expr(\"FILTER == 'PASS'\").count > 0",
         "table_config": [
           {
             "title": "PASS calls",
-            "table_values": "data.rows.filter_custom(lambda row: row.FILTER == 'PASS')",
+            "table_values": "data.rows.filter_expr(\"FILTER == 'PASS'\")",
             "headers": [
               "CHROM",
               "POS",
@@ -54,11 +54,11 @@ After. The per-sample table is kept as `download_only`; delete it if the user do
         "file_rules": {
           "pattern": ".*\\.vcf$"
         },
-        "stat": "data.rows.filter_custom(lambda row: row.FILTER == 'PASS').count > 0",
+        "stat": "data.rows.filter_expr(\"FILTER == 'PASS'\").count > 0",
         "table_config": [
           {
             "title": "PASS calls",
-            "table_values": "data.rows.filter_custom(lambda row: row.FILTER == 'PASS')",
+            "table_values": "data.rows.filter_expr(\"FILTER == 'PASS'\")",
             "headers": [
               "CHROM",
               "POS",
@@ -70,7 +70,7 @@ After. The per-sample table is kept as `download_only`; delete it if the user do
           }
         ],
         "named_aggregate_stats": {
-          "pass_calls": "data.rows.filter_custom(lambda row: row.FILTER == 'PASS')"
+          "pass_calls": "data.rows.filter_expr(\"FILTER == 'PASS'\")"
         },
         "aggregate_table_config": [
           {
@@ -140,9 +140,9 @@ table reads.
         "_extends": [
           "CALL_TABLE"
         ],
-        "stat": "data.rows.filter_custom(lambda row: row.FILTER == 'PASS').count > 0",
+        "stat": "data.rows.filter_expr(\"FILTER == 'PASS'\").count > 0",
         "named_aggregate_stats": {
-          "calls": "data.rows.filter_custom(lambda row: row.FILTER == 'PASS')"
+          "calls": "data.rows.filter_expr(\"FILTER == 'PASS'\")"
         }
       },
       {
@@ -158,9 +158,9 @@ table reads.
         "_extends": [
           "CALL_TABLE"
         ],
-        "stat": "data.rows.filter_custom(lambda row: row.REF == 'A' and row.ALT == 'G').count > 0",
+        "stat": "data.rows.filter_expr(\"REF == 'A' and ALT == 'G'\").count > 0",
         "named_aggregate_stats": {
-          "calls": "data.rows.filter_custom(lambda row: row.REF == 'A' and row.ALT == 'G')"
+          "calls": "data.rows.filter_expr(\"REF == 'A' and ALT == 'G'\")"
         }
       }
     ]
