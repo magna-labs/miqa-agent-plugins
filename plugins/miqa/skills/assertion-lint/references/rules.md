@@ -178,8 +178,10 @@ in `_variables`. Basis: Seen.
 
 **R3. Per-sample tables repeated across checks (suggestion).**
 Detect: the same `table_config` entry in five or more checks, or a per-sample table beside many
-samples where the reader would prefer one table. Fix: one `aggregate_table_config`, and set the
-per-sample table to `download_only` or remove it. Basis: Seen. See the `table-config-to-aggregate`
+samples where the reader would prefer one table. Fix: one `aggregate_table_config`, and remove the
+per-sample tables. Removing them is faster than `download_only`, which still evaluates and stores the
+full table for every sample and skips only the on-screen table. Offer `download_only` only if the user
+wants the per-sample downloads. Basis: Seen. See the `table-config-to-aggregate`
 skill for the conversion.
 
 **R4. Aggregate tables that are not downloadable (suggestion, low priority).**

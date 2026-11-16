@@ -72,5 +72,6 @@ names follow `mcp__<server-name>__<tool>`). It never calls a tool that writes or
   `file_counts` it is the **pass** condition. Get the direction right before you flag one.
 - A placeholder `stat` with `static: 0` and `relationship: "lt"` is normal on a check with
   `aggregate_check_only`. Do not flag it there.
-- Do not flag a per-sample `table_config` beside an aggregate table when it is `download_only`.
-  That is a common and good arrangement.
+- A per-sample `table_config` beside an aggregate table that covers the same data is rule R3, even
+  when it is `download_only`. A `download_only` table is still evaluated and stored for every
+  sample. Raise it as a suggestion, and lower its priority when there are only a few samples.
