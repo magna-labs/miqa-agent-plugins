@@ -53,7 +53,10 @@ the docs and say so.
 
 ## Practice in existing Test Blocks
 
-- Many keep the per-sample table beside the aggregate one with `download_only: true`.
+- Some keep the per-sample table beside the aggregate one with `download_only: true`. Offer that as
+  an option when converting, but recommend removing the per-sample table. Removing it is faster: a
+  `download_only` table is still evaluated and stored for every sample, and only the on-screen table
+  is skipped.
 - Shared aggregate tables are often stored once in `_variables` and pulled in with `_extends`.
 - A one-row summary is often written as a one-item list, for example
   `[<match>.ppa_summary(method="wilson").add_column('TP', <match>.tp())]`.

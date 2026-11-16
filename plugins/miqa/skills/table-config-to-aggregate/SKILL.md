@@ -75,10 +75,15 @@ it is and why, and move on to the next. Do not force a conversion or approximate
       column with `column_config` or `explode(key_field='<name>')`, because `explode()` puts the
       sample key there. Always set
       `downloadable: true` on the aggregate table.
-   5. Remove the original per-sample `table_config` entry. The aggregate table replaces it, and one
-      table per sample is the clutter this skill exists to get rid of. If the user wants to keep
-      the per-sample detail, set `download_only: true` on that entry instead of deleting it. If a
-      `table_config` is left in place for any other reason, say why in the report.
+   5. Replace the original per-sample `table_config` entry. The aggregate table takes its place, and
+      one table per sample is the clutter this skill exists to get rid of, so assume the user wants
+      it removed. Do not leave it alone because it is already `download_only` or because other
+      blocks keep one. Ask once, before converting, whether to remove the per-sample tables or keep
+      them as `download_only` downloads, and say you recommend removing them: it is faster, because
+      a `download_only` table is still evaluated and stored for every sample, and only the on-screen
+      table is skipped. If the user does not say, remove them. If they want the detail kept, set `download_only: true` on that entry
+      instead of deleting it. State in the report which per-sample tables you removed and which you
+      kept.
 
    **Going back (aggregate to per-sample):** for each `aggregate_table_config` entry that fits the
    pattern, take the expression behind the named stat it reads and make it the `table_values` of a
@@ -114,5 +119,5 @@ it is and why, and move on to the next. Do not force a conversion or approximate
 - `named_aggregate_stats` is not supported by every check type. See the reference, and the docs if
   the check type is not covered there.
 - Aggregate tables appear under the first dataset's results only. Tell the user where to look.
-- Existing Test Blocks often keep the per-sample table as `download_only`. If the check already does
-  that, leave it as it is.
+- Some existing Test Blocks keep the per-sample table as a `download_only` download beside the
+  aggregate table. That is an option to offer, not the default: ask, and recommend removing it.

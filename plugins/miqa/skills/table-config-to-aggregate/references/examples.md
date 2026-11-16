@@ -40,7 +40,8 @@ Before:
 }
 ```
 
-After. The per-sample table is kept as `download_only`; delete it if the user does not want it:
+After. The per-sample table is removed, which is the default. If the user wants to keep the detail,
+leave the original `table_config` entry in place and add `"download_only": true` to it:
 
 ```json
 {
@@ -55,20 +56,6 @@ After. The per-sample table is kept as `download_only`; delete it if the user do
           "pattern": ".*\\.vcf$"
         },
         "stat": "data.rows.filter_expr(\"FILTER == 'PASS'\").count > 0",
-        "table_config": [
-          {
-            "title": "PASS calls",
-            "table_values": "data.rows.filter_expr(\"FILTER == 'PASS'\")",
-            "headers": [
-              "CHROM",
-              "POS",
-              "REF",
-              "ALT"
-            ],
-            "max_row_count": 100,
-            "download_only": true
-          }
-        ],
         "named_aggregate_stats": {
           "pass_calls": "data.rows.filter_expr(\"FILTER == 'PASS'\")"
         },
