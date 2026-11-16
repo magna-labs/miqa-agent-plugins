@@ -224,7 +224,7 @@ identifier. Fix: share one definition with `_extends`. Basis: Seen.
 **H1. Leftover placeholder (likely mistake).** A name such as "Your Check Name", or an unchanged
 example `id`. Basis: Seen.
 
-**H2. Hard-coded values that go stale (suggestion).** A count (`== 76`), a universe size, a dataset
+**H2. Hard-coded values that go stale (suggestion).** A count (`== 76`), a total or other fixed number, a dataset
 ID or a sample ID inside a `stat`, `name` or `description`. Fix: a variable, with a comment on what
 it counts. Do not flag a list that is the expected data itself, such as the reference values a check
 compares against. If such a list is repeated, use R2. Basis: Seen.
