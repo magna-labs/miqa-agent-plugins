@@ -60,8 +60,33 @@ names follow `mcp__<server-name>__<tool>`). It never calls a tool that writes or
 7. **Report.** Give the findings grouped as errors, likely mistakes and suggestions. For each one:
    the check's position (its group and number, with the first few words of its name, since names
    are long and sometimes repeated), the key path, what is wrong in one sentence, why it matters, and
-   the smallest edit that fixes it. Finish with what you could not check. Offer to apply the fixes as a new
-   Test Block version only if the user asks.
+   the smallest edit that fixes it. Finish with what you could not check. Offer to apply the fixes only if the
+   user has not already asked: as a new Test Block version, or, in the Miqa web chat, as an Apply
+   block (see below).
+
+## In the Miqa web chat
+
+When the page's editor JSON is in the turn's context ("Assertions JSON in the page editor"), the
+fixes can be applied to the editor. Give the report first. Then, if the user asked for fixes or says
+yes when you offer them, put the fixes in a block like this:
+
+- Send **one** fenced code block whose language is `miqa-assertions`. It holds only the check-type
+  groups to change, each with a `checks` list of **complete** corrected checks. The drawer shows an
+  **Apply** button under it, so never ask the user to paste the JSON.
+- Apply replaces a check with the same `name`, so keep every changed check's `name` exactly as it
+  is. A check with a new name is added at the top, and it leaves the old one in place. Do not rename a
+  check in a fix. If a rename is needed, tell the user to delete the old check by hand.
+- Top-level `_variables` is merged shallowly: you can add or overwrite entries, not remove them.
+- Apply cannot delete. Deleting a whole check, or an entry in top-level `_variables`, has to be done
+  by hand: list those separately in plain words. Removing a key from inside a check is fine, because
+  the whole check is replaced.
+- Checks with no `name`, or with the same `name` as another check, cannot be targeted reliably. Leave
+  them out of the block, and say they need a manual edit.
+- Apply only fills the editor. It does not save. Tell the user to review the editor and save it.
+- Include only fixes you are confident in, or have proven. Leave suggestions that need a decision from
+  the user as text.
+- If the context says the editor JSON was omitted for size, read the block with
+  `api_get_test_block_version`, or ask the user to paste it. Apply still works on the page's editor.
 
 ## Things to watch
 
