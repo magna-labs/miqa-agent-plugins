@@ -28,7 +28,10 @@ the docs and say so.
 - `is_aggregate` is not needed to get aggregate tables.
 - Aggregate tables appear under the first dataset's results only.
 - `explode()` on a map of row lists skips samples whose list is empty, so those samples do not
-  appear. It adds the sample key as `key`, replacing any column already called `key`.
+  appear. It adds the sample key as `key`, replacing any column already called `key`. The key is the
+  last column. To show it first, set `union_headers: true` and `first_columns: ["<sample column>"]` on
+  the table (or list `headers` with the sample column first). A table built from one object per
+  sample, or from `Join`, already starts with the key.
   `explode(key_field='<name>')` names that column. `column_config` can rename it too.
 - `merge_rows()` also flattens a map of row lists, but labels rows with a `group` column unless
   `group_field` is given. Prefer `explode()`.

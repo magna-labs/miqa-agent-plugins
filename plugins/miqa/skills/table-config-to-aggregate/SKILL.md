@@ -73,7 +73,10 @@ it is and why, and move on to the next. Do not force a conversion or approximate
 
    4. Copy `title`, `headers`, `column_config` and `max_row_count` across. Rename `key` to the sample
       column with `column_config` or `explode(key_field='<name>')`, because `explode()` puts the
-      sample key there. Always set
+      sample key there. Show the sample column first by default. For a table built with `explode()`
+      from a list of rows, the key comes last, so add `"union_headers": true` and
+      `"first_columns": ["<sample column>"]`, or, if you set `headers`, list the sample column first.
+      A table built from one object per sample, or from `Join`, already starts with the key. Always set
       `downloadable: true` on the aggregate table.
    5. Replace the original per-sample `table_config` entry. The aggregate table takes its place, and
       one table per sample is the clutter this skill exists to get rid of, so assume the user wants
