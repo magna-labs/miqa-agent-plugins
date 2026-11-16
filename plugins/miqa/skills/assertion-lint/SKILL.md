@@ -74,5 +74,3 @@ names follow `mcp__<server-name>__<tool>`). It never calls a tool that writes or
   `aggregate_check_only`. Do not flag it there.
 - Do not flag a per-sample `table_config` beside an aggregate table when it is `download_only`.
   That is a common and good arrangement.
-- Do not copy customer names, bucket paths, sample identifiers or gene names into findings. Refer
-  to checks by their position and a short generic description.
