@@ -1,0 +1,428 @@
+<!--
+  Canonical template for the assertion-explainer's optional report: the one-page, shareable version
+  of the written explanation (see SKILL.md, step 7). Copy this file's content verbatim and only
+  replace the {{PLACEHOLDER}} tokens and the repeated blocks marked REPEAT and END REPEAT in
+  the comments below. Delete every HTML comment from the finished page, including this one. Do not restyle, and do not re-derive the palette, type or layout: the <link>
+  and <style> below are copied unchanged from the sibling `version-rollup` template (which shares them
+  with `active-triggers`), so every Miqa report reads as one family. If those tokens ever change, bring
+  the change here too.
+
+  The page is self-contained: no scripts, no images, and no stylesheets other than the Google Fonts
+  link, so it also runs in the Miqa web chat's report sandbox.
+
+  Content rules:
+    - Every claim about what a check type or operator does comes from the same sources as the written
+      explanation (`get_output_explorer_vocabulary()` or a docs page). Do not add anything the
+      explanation did not say.
+    - Resolve `_extends`, `_variables` and `_precompute` before writing: no `{{...}}` placeholders
+      from the assertions may appear on the page.
+    - Link to the Test Block only when a real web host is known, as {web_host}/test_block/{id}. A
+      pasted blob has no id, host or version: leave those out and omit the meta items. Never invent a
+      link, a name or a version.
+    - Never copy customer-specific values (bucket paths, sample IDs) onto the page unless they are
+      part of what the checks actually test and the user is the one who supplied them.
+    - Severity chips: `chip failing` for failtype fail, `chip warn` for failtype warn, and
+      `chip running` for a check that only reports (no gate). Never colour a 0 as critical.
+-->
+<title>{{BLOCK_NAME_OR_"Assertions"}} Explained</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --paper: #F5F4EF;
+    --surface: #FFFFFF;
+    --ink: #171F1C;
+    --muted: #5B655F;
+    --line: #DAD8D0;
+    --accent: #2B6E63;
+    --accent-soft: #E4EEEC;
+    --success: #3C8F5C;
+    --success-soft: #E3F1E7;
+    --warning: #B8842B;
+    --warning-soft: #F5EBD8;
+    --critical: #C1473A;
+    --critical-soft: #F8E4E1;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #101613;
+      --surface: #172420;
+      --ink: #E9EDE9;
+      --muted: #93A19B;
+      --line: #263430;
+      --accent: #6FC2B0;
+      --accent-soft: #1D3A34;
+      --success: #5FBE84;
+      --success-soft: #1B3324;
+      --warning: #E0A94D;
+      --warning-soft: #3A2E17;
+      --critical: #E37567;
+      --critical-soft: #3B2320;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper: #101613;
+    --surface: #172420;
+    --ink: #E9EDE9;
+    --muted: #93A19B;
+    --line: #263430;
+    --accent: #6FC2B0;
+    --accent-soft: #1D3A34;
+    --success: #5FBE84;
+    --success-soft: #1B3324;
+    --warning: #E0A94D;
+    --warning-soft: #3A2E17;
+    --critical: #E37567;
+    --critical-soft: #3B2320;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Source Serif 4", Georgia, serif;
+    font-size: 16px;
+    line-height: 1.55;
+    padding: 3rem 1.5rem 5rem;
+    display: flex;
+    justify-content: center;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .tile, .row { transition: background-color 0.15s ease; }
+  }
+
+  main {
+    width: 100%;
+    max-width: 900px;
+  }
+
+  .mono {
+    font-family: "IBM Plex Mono", ui-monospace, "SF Mono", Consolas, monospace;
+  }
+
+  a { color: var(--accent); text-decoration-color: color-mix(in srgb, var(--accent) 40%, transparent); text-underline-offset: 2px; }
+  a:hover { text-decoration-color: var(--accent); }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* Masthead */
+  .masthead {
+    border-bottom: 3px solid var(--ink);
+    padding-bottom: 1.75rem;
+    margin-bottom: 2rem;
+  }
+
+  .eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 0.6rem;
+  }
+
+  h1 {
+    font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    font-weight: 700;
+    font-size: clamp(1.9rem, 4.2vw, 2.6rem);
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    margin: 0 0 0.9rem;
+    text-wrap: balance;
+  }
+
+  h1 .tag {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 500;
+    font-size: 0.62em;
+    letter-spacing: -0.01em;
+    color: var(--muted);
+    display: block;
+    margin-top: 0.3rem;
+  }
+
+  .meta-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.6rem;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.82rem;
+    color: var(--muted);
+  }
+
+  .meta-strip strong {
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  /* Stat tiles */
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    margin-bottom: 2.5rem;
+  }
+
+  .tile {
+    background: var(--surface);
+    padding: 1.2rem 1.3rem;
+  }
+
+  .tile .n {
+    font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    font-weight: 700;
+    font-size: 2.2rem;
+    line-height: 1;
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tile .n.success { color: var(--success); }
+  .tile .n.warning { color: var(--warning); }
+  .tile .n.critical { color: var(--critical); }
+
+  .tile .label {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-top: 0.35rem;
+  }
+
+  /* Section headers */
+  section { margin-bottom: 2.75rem; }
+
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 0.5rem;
+    margin-bottom: 1.1rem;
+  }
+
+  h2 {
+    font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    font-weight: 700;
+    font-size: 1.5rem;
+    letter-spacing: 0.01em;
+    margin: 0;
+  }
+
+  .section-note {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.76rem;
+    color: var(--muted);
+  }
+
+  /* Table */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.92rem; min-width: 640px; }
+
+  thead th {
+    text-align: left;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+    padding: 0.7rem 1rem;
+    background: var(--accent-soft);
+    border-bottom: 1px solid var(--line);
+  }
+
+  td {
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+
+  tbody tr.is-failing { background: color-mix(in srgb, var(--critical) 4%, transparent); }
+  tbody tr.is-failing:hover { background: color-mix(in srgb, var(--critical) 8%, transparent); }
+
+  .trig-name { font-weight: 600; }
+  .component { color: var(--muted); font-size: 0.82rem; }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.03em;
+    padding: 0.22em 0.6em;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+
+  .chip::before {
+    content: "";
+    width: 0.5em;
+    height: 0.5em;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  .chip.healthy { background: var(--success-soft); color: var(--success); }
+  .chip.failing { background: var(--critical-soft); color: var(--critical); }
+  .chip.warn { background: var(--warning-soft); color: var(--warning); }
+  .chip.running { background: var(--accent-soft); color: var(--accent); }
+
+  .tag { font-family: "IBM Plex Mono", monospace; font-size: 0.85rem; }
+
+  .note { color: var(--muted); font-size: 0.88rem; }
+  .note a.tcr { font-family: "IBM Plex Mono", monospace; font-size: 0.82rem; }
+
+  .checks { font-variant-numeric: tabular-nums; font-family: "IBM Plex Mono", monospace; font-size: 0.85rem; }
+  .checks .warn-n { color: var(--warning); }
+  .checks .fail-n { color: var(--critical); font-weight: 600; }
+
+  /* Case file (failing chain only — see header note) */
+  .case {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--critical);
+    padding: 1.6rem 1.8rem;
+  }
+
+  .case h3 {
+    font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin: 0 0 0.9rem;
+  }
+
+  .case p { margin: 0 0 0.9rem; }
+  .case p:last-child { margin-bottom: 0; }
+
+  .proof {
+    background: var(--accent-soft);
+    border: 1px solid var(--line);
+    padding: 1.1rem 1.3rem;
+    margin: 1rem 0 1.3rem;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.86rem;
+    overflow-x: auto;
+  }
+
+  .proof .line { display: flex; justify-content: space-between; gap: 1rem; padding: 0.15rem 0; }
+  .proof .line.total { border-top: 1px solid var(--line); margin-top: 0.4rem; padding-top: 0.55rem; font-weight: 600; color: var(--critical); }
+  .proof .val { font-variant-numeric: tabular-nums; }
+
+  footer {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.74rem;
+    color: var(--muted);
+    border-top: 1px solid var(--line);
+    padding-top: 1.2rem;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  @media (max-width: 640px) {
+    .tiles { grid-template-columns: 1fr; }
+    footer { flex-direction: column; }
+  }
+</style>
+<main>
+
+  <div class="masthead">
+    <p class="eyebrow">Miqa &middot; Test Block Explained</p>
+    <h1>{{BLOCK_NAME_OR_"Assertions"}}<span class="tag">{{VERSION_LABEL, omit when not a resolved Test Block}}</span></h1>
+    <div class="meta-strip">
+      <span><strong>Checks</strong> {{CHECK_COUNT}}</span>
+      <span><strong>Check types</strong> {{CHECK_TYPE_COUNT}}</span>
+      <!-- Only for a resolved Test Block, and only when a web host is known: -->
+      <span><strong>Block</strong> <a href="{{WEB_HOST}}/test_block/{{TB_ID}}">{{TB_ID}}</a></span>
+    </div>
+  </div>
+
+  <div class="tiles">
+    <div class="tile">
+      <div class="n">{{CHECK_COUNT}}</div>
+      <div class="label">Checks</div>
+    </div>
+    <div class="tile">
+      <div class="n">{{FAIL_COUNT}}</div>
+      <div class="label">Can fail the run</div>
+    </div>
+    <div class="tile">
+      <div class="n warning">{{WARN_OR_REPORT_ONLY_COUNT}}</div>
+      <div class="label">Warn only or report only</div>
+    </div>
+  </div>
+
+  <section>
+    <div class="section-head">
+      <h2>What this guards</h2>
+      <span class="section-note">inferred from the fields and file patterns, not the name</span>
+    </div>
+    <p>{{One or two sentences: what pipeline or output this payload is for. This is the same lead
+    sentence as the written explanation.}}</p>
+  </section>
+
+  <!-- REPEAT: one <section> per check type; inside it, one block per shared template if the
+       explanation grouped checks that way. -->
+  <section>
+    <div class="section-head">
+      <h2>{{CHECK_TYPE}}</h2>
+      <span class="section-note">{{N}} checks{{ &middot; one shared template, if there is one}}</span>
+    </div>
+    <p>{{What this group of checks does, said once: the template's shape, what is compared with what,
+    and how it decides pass or fail. For a handful of checks with no template, say what the group is
+    for in a sentence and let the table carry the rest.}}</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Check</th><th>What it looks at</th><th>How it decides</th><th>Severity</th></tr>
+        </thead>
+        <tbody>
+          <!-- REPEAT: one <tr> per check, or per row of what varies when a template is shared -->
+          <tr>
+            <td class="trig-name">{{CHECK_NAME}}</td>
+            <td class="component">{{WHAT_IT_LOOKS_AT: files, fields, match keys}}</td>
+            <td class="note">{{HOW_IT_DECIDES: the pass or fail rule in plain words, with the threshold if there is one}}</td>
+            <td><span class="chip {{failing|warn|running}}">{{Fails the run|Warns|Report only}}</span></td>
+          </tr>
+          <!-- END REPEAT -->
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <!-- END REPEAT -->
+
+  <!-- Include only when the explanation had notes. Omit the whole section when it had none. -->
+  <section>
+    <div class="section-head">
+      <h2>Worth a look</h2>
+      <span class="section-note">things a quick skim of the JSON would miss</span>
+    </div>
+    <!-- REPEAT: one .case per note: a likely accidental duplicate, an unusually narrow or broad file
+         pattern, a baseline override pinned to a fixed path, and so on. -->
+    <div class="case">
+      <h3>{{Short, specific headline, not "Note"}}</h3>
+      <p>{{What it is, which check or checks it affects, and why it matters. Say plainly what you could
+      not tell.}}</p>
+    </div>
+    <!-- END REPEAT -->
+  </section>
+
+  <footer>
+    <span>{{SOURCE: "Test Block NAME, version V" or "Pasted assertions"}}</span>
+    <span>Explained {{DATE}}</span>
+  </footer>
+
+</main>
