@@ -1,9 +1,9 @@
 ---
 name: assertion-lint
-description: Use when the user asks to lint, review, sanity-check or tidy a Miqa Test Block or a set of assertions, e.g. "lint this test block", "what's wrong with these assertions", "why does this check never fail", "can this block be faster", "find the mistakes in this check", or pastes assertions JSON and asks whether it is correct (via a connected Miqa MCP server). Reads the assertions, finds structural errors, checks that each check can actually pass and fail the way its name says, flags names used in the wrong place, and suggests reuse and performance improvements. Report-only: it never edits, saves or publishes a Test Block.
+description: Use when the user asks to lint, review, sanity-check or tidy a Miqa Test Block or a set of assertions, e.g. "lint this test block", "what's wrong with these assertions", "why does this check never fail", "can this block be faster", "find the mistakes in this check", or pastes assertions JSON and asks whether it is correct (via a connected Miqa MCP server). Reads the assertions, finds structural errors, checks that each check can actually pass and fail the way its name says, flags names used in the wrong place, and suggests reuse and performance improvements. Report-only: it never edits, saves or publishes a Test Block. Afterward it offers a shareable one-page HTML report with before-and-after diffs of the fixes.
 metadata:
   summary: Lint a Test Block's assertions for errors, unclear pass/fail, and reuse or performance problems.
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # Assertion lint
@@ -63,6 +63,37 @@ names follow `mcp__<server-name>__<tool>`). It never calls a tool that writes or
    the smallest edit that fixes it. Finish with what you could not check. Offer to apply the fixes only if the
    user has not already asked: as a new Test Block version, or, in the Miqa web chat, as an Apply
    block (see below).
+
+8. **Offer a report, once.** After the written report, say that a shareable one-page report is
+   available, with a git-style before-and-after diff for each fix. State it once and do not re-offer.
+   Build nothing unless the user says yes.
+
+   When they do, use `reference/template.html` in this skill's folder as the literal starting file:
+   copy it verbatim and fill in only the `{{PLACEHOLDER}}` tokens and the repeated blocks. Then delete
+   every HTML comment from the page, because the instructions in them must not appear on it. Do not
+   restyle it. Its header lists the content rules. The page says what the written report said and
+   nothing more: the same findings, severities, rule ids and check positions.
+
+   For each finding that has a fix you are confident in, add a diff:
+   - Take the check as it is now and as it would be after the fix, each pretty-printed as JSON with
+     two-space indentation. Compare them line by line, and keep three lines of unchanged context
+     around each change. In Claude Code you can run `diff -u` on two files. In the web chat there is
+     no shell, so compare them yourself.
+   - Write each line as a `.dl` row in the template's `.diff` block: removed lines with `del`, added
+     lines with `add`, and the old and new line numbers in the two number columns. Escape `&`, `<` and
+     `>` in every line, and put long runs of unchanged lines in a `<details>`.
+   - If you proved the rewrite with `api_run_adhoc_assertions`, add the `.proof` line saying so.
+     Otherwise leave it out.
+
+   Deliver it for the environment you are in:
+   - **Claude Code with an artifact tool:** publish it as a private page, titled with the block's
+     name followed by "Lint" (or "Assertions Lint" for a pasted blob), and give the user the link.
+   - **The Miqa web chat** (the turn has page context, and there is no filesystem or clipboard): put
+     the filled template in **one** fenced code block whose language is `miqa-html`, holding the whole
+     document. The drawer shows an **Open report** button under it. This is a separate block from the
+     `miqa-assertions` block that carries the fixes, so send them as two blocks, and never ask the
+     user to save or paste the HTML.
+   - **Neither:** say you cannot make the page here.
 
 ## In the Miqa web chat
 

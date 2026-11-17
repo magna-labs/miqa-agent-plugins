@@ -1,0 +1,531 @@
+<!--
+  Canonical template for the assertion-lint report: the one-page, shareable version of the lint
+  findings (see SKILL.md, step 7). Copy this file's content verbatim and fill in only the
+  {{PLACEHOLDER}} tokens and the repeated blocks marked REPEAT and END REPEAT in the comments below.
+  Delete every HTML comment from the finished page, including this one. Do not restyle.
+
+  The first <link> and <style> are copied unchanged from the sibling `version-rollup` template, so the
+  design tokens match every other Miqa report. The second <style> block holds the components this
+  report adds: severity cards (.finding) and the git-style diff (.diff). The diff block is the
+  canonical diff component for Miqa reports: copy it unchanged into any report that needs one.
+
+  The page is self-contained: no scripts, no images, and no stylesheets other than the Google Fonts
+  link, so it also runs in the Miqa web chat's report sandbox.
+
+  Content rules:
+    - Say what the findings said in the written report and nothing more. Every finding keeps its
+      severity (error, likely mistake or suggestion), its rule id, and its check position.
+    - Refer to a check by its group and number, with the first few words of its name. Never copy
+      customer-specific values (bucket paths, sample or gene names, ticket numbers) onto the page.
+    - Performance findings say "measured" or "assumed". Never present an assumed number as measured.
+    - A diff shows the smallest edit that fixes the finding, on the check's pretty-printed JSON with
+      two-space indentation, with three lines of context. Escape &, < and > in every line. Collapse long
+      runs of unchanged lines in a <details>. Only add a diff for a finding that has a fix, and only a
+      fix you are confident in. If a rewrite was proven with a run, say so in a .proof block.
+    - Never colour a 0 as critical. Omit a severity section that has no findings.
+-->
+<title>{{BLOCK_NAME_OR_"Assertions"}} Lint</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --paper: #F5F4EF;
+    --surface: #FFFFFF;
+    --ink: #171F1C;
+    --muted: #5B655F;
+    --line: #DAD8D0;
+    --accent: #2B6E63;
+    --accent-soft: #E4EEEC;
+    --success: #3C8F5C;
+    --success-soft: #E3F1E7;
+    --warning: #B8842B;
+    --warning-soft: #F5EBD8;
+    --critical: #C1473A;
+    --critical-soft: #F8E4E1;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #101613;
+      --surface: #172420;
+      --ink: #E9EDE9;
+      --muted: #93A19B;
+      --line: #263430;
+      --accent: #6FC2B0;
+      --accent-soft: #1D3A34;
+      --success: #5FBE84;
+      --success-soft: #1B3324;
+      --warning: #E0A94D;
+      --warning-soft: #3A2E17;
+      --critical: #E37567;
+      --critical-soft: #3B2320;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper: #101613;
+    --surface: #172420;
+    --ink: #E9EDE9;
+    --muted: #93A19B;
+    --line: #263430;
+    --accent: #6FC2B0;
+    --accent-soft: #1D3A34;
+    --success: #5FBE84;
+    --success-soft: #1B3324;
+    --warning: #E0A94D;
+    --warning-soft: #3A2E17;
+    --critical: #E37567;
+    --critical-soft: #3B2320;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Source Serif 4", Georgia, serif;
+    font-size: 16px;
+    line-height: 1.55;
+    padding: 3rem 1.5rem 5rem;
+    display: flex;
+    justify-content: center;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .tile, .row { transition: background-color 0.15s ease; }
+  }
+
+  main {
+    width: 100%;
+    max-width: 900px;
+  }
+
+  .mono {
+    font-family: "IBM Plex Mono", ui-monospace, "SF Mono", Consolas, monospace;
+  }
+
+  a { color: var(--accent); text-decoration-color: color-mix(in srgb, var(--accent) 40%, transparent); text-underline-offset: 2px; }
+  a:hover { text-decoration-color: var(--accent); }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* Masthead */
+  .masthead {
+    border-bottom: 3px solid var(--ink);
+    padding-bottom: 1.75rem;
+    margin-bottom: 2rem;
+  }
+
+  .eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 0.6rem;
+  }
+
+  h1 {
+    font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    font-weight: 700;
+    font-size: clamp(1.9rem, 4.2vw, 2.6rem);
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    margin: 0 0 0.9rem;
+    text-wrap: balance;
+  }
+
+  h1 .tag {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 500;
+    font-size: 0.62em;
+    letter-spacing: -0.01em;
+    color: var(--muted);
+    display: block;
+    margin-top: 0.3rem;
+  }
+
+  .meta-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.6rem;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.82rem;
+    color: var(--muted);
+  }
+
+  .meta-strip strong {
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  /* Stat tiles */
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    margin-bottom: 2.5rem;
+  }
+
+  .tile {
+    background: var(--surface);
+    padding: 1.2rem 1.3rem;
+  }
+
+  .tile .n {
+    font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    font-weight: 700;
+    font-size: 2.2rem;
+    line-height: 1;
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tile .n.success { color: var(--success); }
+  .tile .n.warning { color: var(--warning); }
+  .tile .n.critical { color: var(--critical); }
+
+  .tile .label {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-top: 0.35rem;
+  }
+
+  /* Section headers */
+  section { margin-bottom: 2.75rem; }
+
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 0.5rem;
+    margin-bottom: 1.1rem;
+  }
+
+  h2 {
+    font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    font-weight: 700;
+    font-size: 1.5rem;
+    letter-spacing: 0.01em;
+    margin: 0;
+  }
+
+  .section-note {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.76rem;
+    color: var(--muted);
+  }
+
+  /* Table */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.92rem; min-width: 640px; }
+
+  thead th {
+    text-align: left;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+    padding: 0.7rem 1rem;
+    background: var(--accent-soft);
+    border-bottom: 1px solid var(--line);
+  }
+
+  td {
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+
+  tbody tr.is-failing { background: color-mix(in srgb, var(--critical) 4%, transparent); }
+  tbody tr.is-failing:hover { background: color-mix(in srgb, var(--critical) 8%, transparent); }
+
+  .trig-name { font-weight: 600; }
+  .component { color: var(--muted); font-size: 0.82rem; }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.03em;
+    padding: 0.22em 0.6em;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+
+  .chip::before {
+    content: "";
+    width: 0.5em;
+    height: 0.5em;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  .chip.healthy { background: var(--success-soft); color: var(--success); }
+  .chip.failing { background: var(--critical-soft); color: var(--critical); }
+  .chip.warn { background: var(--warning-soft); color: var(--warning); }
+  .chip.running { background: var(--accent-soft); color: var(--accent); }
+
+  .tag { font-family: "IBM Plex Mono", monospace; font-size: 0.85rem; }
+
+  .note { color: var(--muted); font-size: 0.88rem; }
+  .note a.tcr { font-family: "IBM Plex Mono", monospace; font-size: 0.82rem; }
+
+  .checks { font-variant-numeric: tabular-nums; font-family: "IBM Plex Mono", monospace; font-size: 0.85rem; }
+  .checks .warn-n { color: var(--warning); }
+  .checks .fail-n { color: var(--critical); font-weight: 600; }
+
+  /* Case file (failing chain only — see header note) */
+  .case {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--critical);
+    padding: 1.6rem 1.8rem;
+  }
+
+  .case h3 {
+    font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin: 0 0 0.9rem;
+  }
+
+  .case p { margin: 0 0 0.9rem; }
+  .case p:last-child { margin-bottom: 0; }
+
+  .proof {
+    background: var(--accent-soft);
+    border: 1px solid var(--line);
+    padding: 1.1rem 1.3rem;
+    margin: 1rem 0 1.3rem;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.86rem;
+    overflow-x: auto;
+  }
+
+  .proof .line { display: flex; justify-content: space-between; gap: 1rem; padding: 0.15rem 0; }
+  .proof .line.total { border-top: 1px solid var(--line); margin-top: 0.4rem; padding-top: 0.55rem; font-weight: 600; color: var(--critical); }
+  .proof .val { font-variant-numeric: tabular-nums; }
+
+  footer {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.74rem;
+    color: var(--muted);
+    border-top: 1px solid var(--line);
+    padding-top: 1.2rem;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  @media (max-width: 640px) {
+    .tiles { grid-template-columns: 1fr; }
+    footer { flex-direction: column; }
+  }
+</style>
+<style>
+  /* Lint components. Everything below uses only the design tokens above. */
+
+  /* Findings: one card per finding, edge colour = severity */
+  .finding {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--accent);
+    padding: 1.4rem 1.6rem;
+    margin-bottom: 1.1rem;
+  }
+  .finding.error { border-left-color: var(--critical); }
+  .finding.likely { border-left-color: var(--warning); }
+  .finding.suggestion { border-left-color: var(--accent); }
+
+  .finding h3 {
+    font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin: 0 0 0.5rem;
+  }
+  .finding .where {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin: 0 0 0.8rem;
+  }
+  .finding .where .rule { color: var(--accent); font-weight: 600; }
+  .finding p { margin: 0 0 0.8rem; }
+  .finding p:last-child { margin-bottom: 0; }
+  .finding .basis { font-size: 0.8rem; color: var(--muted); }
+
+  .list-plain { margin: 0; padding-left: 1.2rem; }
+  .list-plain li { margin-bottom: 0.4rem; }
+
+  /* Diff: git-style before and after. Canonical component: copy unchanged into other reports. */
+  .diff {
+    border: 1px solid var(--line);
+    background: var(--surface);
+    margin: 0.9rem 0 1.1rem;
+    font-family: "IBM Plex Mono", ui-monospace, "SF Mono", Consolas, monospace;
+    font-size: 0.8rem;
+  }
+  .diff-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.5rem 0.9rem;
+    border-bottom: 1px solid var(--line);
+    background: color-mix(in srgb, var(--accent) 6%, transparent);
+    color: var(--muted);
+  }
+  .diff-head .diff-name { color: var(--ink); font-weight: 600; }
+  .diff-stat .add { color: var(--success); font-weight: 600; }
+  .diff-stat .del { color: var(--critical); font-weight: 600; }
+  .diff-body { overflow-x: auto; }
+  .dl {
+    display: grid;
+    grid-template-columns: 2.6rem 2.6rem 1.3rem 1fr;
+    line-height: 1.55;
+    white-space: pre;
+    min-width: max-content;
+    width: 100%;
+  }
+  .dl .no { text-align: right; padding-right: 0.7rem; color: var(--muted); user-select: none; opacity: 0.85; }
+  .dl .sg { text-align: center; color: var(--muted); user-select: none; }
+  .dl .tx { padding-right: 1rem; }
+  .dl.add { background: var(--success-soft); }
+  .dl.add .sg { color: var(--success); font-weight: 700; }
+  .dl.del { background: var(--critical-soft); }
+  .dl.del .sg { color: var(--critical); font-weight: 700; }
+  .diff details > summary {
+    cursor: pointer;
+    padding: 0.3rem 0.9rem;
+    color: var(--muted);
+    background: color-mix(in srgb, var(--ink) 4%, transparent);
+    list-style: none;
+  }
+  .diff details > summary::-webkit-details-marker { display: none; }
+  .diff details > summary::before { content: "\25B8  "; }
+  .diff details[open] > summary::before { content: "\25BE  "; }
+</style>
+
+<main>
+
+  <div class="masthead">
+    <p class="eyebrow">Miqa &middot; Assertion Lint</p>
+    <h1>{{BLOCK_NAME_OR_"Assertions"}}<span class="tag">{{VERSION_LABEL, omit when not a resolved Test Block}}</span></h1>
+    <div class="meta-strip">
+      <span><strong>Checks reviewed</strong> {{CHECK_COUNT}}</span>
+      <span><strong>Findings</strong> {{FINDING_COUNT}}</span>
+      <!-- Only for a resolved Test Block, and only when a real web host is known: -->
+      <span><strong>Block</strong> <a href="{{WEB_HOST}}/test_block/{{TB_ID}}">{{TB_ID}}</a></span>
+    </div>
+  </div>
+
+  <div class="tiles">
+    <div class="tile">
+      <div class="n {{critical, only when the count is above 0}}">{{ERROR_COUNT}}</div>
+      <div class="label">Errors</div>
+    </div>
+    <div class="tile">
+      <div class="n {{warning, only when the count is above 0}}">{{LIKELY_COUNT}}</div>
+      <div class="label">Likely mistakes</div>
+    </div>
+    <div class="tile">
+      <div class="n">{{SUGGESTION_COUNT}}</div>
+      <div class="label">Suggestions</div>
+    </div>
+  </div>
+
+  <!-- REPEAT: one <section> per severity that has findings, in this order: Errors, Likely mistakes,
+       Suggestions. Omit a section with no findings. -->
+  <section>
+    <div class="section-head">
+      <h2>{{Errors|Likely mistakes|Suggestions}}</h2>
+      <span class="section-note">{{certain from the text|worth checking|optional improvements}}</span>
+    </div>
+
+    <!-- REPEAT: one .finding per finding. Class is error, likely or suggestion. -->
+    <div class="finding {{error|likely|suggestion}}">
+      <h3>{{Short, specific headline naming the problem, not "Issue"}}</h3>
+      <p class="where"><span class="rule">{{RULE_ID, e.g. S3}}</span> &middot; {{group and check number, with the first few words of its name}} &middot; {{key path, e.g. aggregate_table_config}}</p>
+      <p>{{What is wrong, and why it matters, in plain words. For a pass or fail finding, say exactly when
+      the check fails.}}</p>
+      <!-- Optional: only for a performance finding. -->
+      <p class="basis">{{Measured|Assumed}}: {{what the number rests on}}</p>
+
+      <!-- Optional: only for a finding with a fix you are confident in. -->
+      <div class="diff">
+        <div class="diff-head">
+          <span class="diff-name">{{group and check number, the check's name}}</span>
+          <span class="diff-stat"><span class="add">+{{ADDED}}</span> <span class="del">&minus;{{REMOVED}}</span></span>
+        </div>
+        <div class="diff-body">
+          <!-- Unchanged lines far from the change go in a <details>. Open it only for context. -->
+          <details>
+            <summary>{{N}} unchanged lines</summary>
+            <!-- REPEAT: one row per unchanged line -->
+            <div class="dl"><span class="no">{{OLD_NO}}</span><span class="no">{{NEW_NO}}</span><span class="sg"> </span><span class="tx">{{LINE, HTML-escaped}}</span></div>
+            <!-- END REPEAT -->
+          </details>
+          <!-- REPEAT: context lines, then removed lines, then added lines, in file order -->
+          <div class="dl"><span class="no">{{OLD_NO}}</span><span class="no">{{NEW_NO}}</span><span class="sg"> </span><span class="tx">{{LINE}}</span></div>
+          <div class="dl del"><span class="no">{{OLD_NO}}</span><span class="no"></span><span class="sg">&minus;</span><span class="tx">{{LINE}}</span></div>
+          <div class="dl add"><span class="no"></span><span class="no">{{NEW_NO}}</span><span class="sg">+</span><span class="tx">{{LINE}}</span></div>
+          <!-- END REPEAT -->
+        </div>
+      </div>
+
+      <!-- Optional: only when the rewrite was proven with api_run_adhoc_assertions. -->
+      <div class="proof">
+        <div class="line"><span>{{What was run, e.g. "Original and rewrite on execution 123"}}</span><span class="val">{{Same result|Differs}}</span></div>
+      </div>
+    </div>
+    <!-- END REPEAT -->
+  </section>
+  <!-- END REPEAT -->
+
+  <!-- Include only when some fix cannot be applied automatically: deleting a check, or removing an
+       entry in the top-level _variables. -->
+  <section>
+    <div class="section-head">
+      <h2>Edit by hand</h2>
+      <span class="section-note">these cannot be applied as a replacement</span>
+    </div>
+    <ul class="list-plain">
+      <!-- REPEAT -->
+      <li>{{What to delete or change, and where.}}</li>
+      <!-- END REPEAT -->
+    </ul>
+  </section>
+
+  <!-- Always include. List what was not checked and why. -->
+  <section>
+    <div class="section-head">
+      <h2>Not checked</h2>
+      <span class="section-note">so you know what this does not cover</span>
+    </div>
+    <ul class="list-plain">
+      <!-- REPEAT -->
+      <li>{{e.g. "Sample count and file sizes were not available, so performance findings are assumed."}}</li>
+      <!-- END REPEAT -->
+    </ul>
+  </section>
+
+  <footer>
+    <span>{{SOURCE: "Test Block NAME, version V" or "Pasted assertions"}}</span>
+    <span>Linted {{DATE}}</span>
+  </footer>
+
+</main>
