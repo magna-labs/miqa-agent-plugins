@@ -1,0 +1,20 @@
+name: Check report templates
+
+on:
+  pull_request:
+    paths:
+      - plugins/**/reference/template.html
+      - scripts/check_report_templates.py
+      - .github/workflows/check-report-templates.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check that report templates share one design and have well formed comments
+        run: python3 scripts/check_report_templates.py
