@@ -1,9 +1,9 @@
 ---
 name: assertion-explainer
-description: Use when the user asks "what is this test block testing", "explain these assertions", "what does this check do", "walk me through this Test Block", or pastes/references a Miqa Output Explorer assertions JSON blob (from a connected TestBlock, a paste, or one already fetched earlier in the conversation) and wants a plain-English readout. The reverse direction of assertion-translator — takes an already-written assertions blob and explains what it actually checks, grounded in live Output Explorer vocabulary and Miqa docs rather than guessed from memory.
+description: Use when the user asks "what is this test block testing", "explain these assertions", "what does this check do", "walk me through this Test Block", or pastes/references a Miqa Output Explorer assertions JSON blob (from a connected TestBlock, a paste, or one already fetched earlier in the conversation) and wants a plain-English readout. The reverse direction of assertion-translator — takes an already-written assertions blob and explains what it actually checks, grounded in live Output Explorer vocabulary and Miqa docs rather than guessed from memory. Afterward it offers a shareable one-page HTML report of the explanation.
 metadata:
   summary: Explain in plain English what a Test Block's assertions check.
-  version: 1.1.1
+  version: 1.2.0
 ---
 
 # Miqa Assertion Explainer
@@ -19,7 +19,8 @@ This skill calls tools named `api_get_test_blocks`, `api_get_test_block_versions
 `api_get_test_block_version`, and `get_output_explorer_vocabulary` on whichever Miqa
 MCP server is connected (tool names follow the pattern `mcp__<server-name>__<tool>`).
 Most setups have exactly one Miqa MCP server connected — just use it. It only ever
-reads; it never calls anything that writes or publishes.
+reads; it never writes to Miqa. The only thing it makes besides text is an optional report, built on
+request (step 7).
 
 ## Procedure
 
@@ -139,6 +140,29 @@ reads; it never calls anything that writes or publishes.
    payload came from. This skill's job ends at "here's what it currently
    checks."
 
+7. **Offer a report, once.** After the written explanation, say that a shareable one-page report of it
+   is available. State it once and do not re-offer. Build nothing unless the user says yes.
+
+   When they do, use `reference/template.html` in this skill's folder as the literal starting file:
+   copy it verbatim and fill in only the `{{PLACEHOLDER}}` tokens and the repeated blocks. Then
+   delete every HTML comment from the page, because the instructions in them must not appear on it. Do
+   not restyle it. It shares the design of the other Miqa reports, and its own header lists the content
+   rules. The page says what the written explanation said and nothing more: the same overview, the
+   same grouping by check type and template, the same notes.
+
+   Deliver it for the environment you are in:
+   - **Claude Code with an artifact tool:** publish it as a private page, titled with the block's
+     name followed by "Explained" (or "Assertions Explained" for a pasted blob), and give the user the
+     link. It stays private unless they share it.
+   - **The Miqa web chat** (the turn has page context, and there is no filesystem or clipboard): put
+     the filled template in **one** fenced code block whose language is `miqa-html`, holding the whole
+     document. The drawer shows an **Open report** button under it, so never ask the user to save or
+     paste the HTML.
+   - **Neither:** say you cannot make the page here, and offer the explanation as text.
+
+   If the user wants a different look, ask whether it is a one-off or whether to change the template
+   for everyone.
+
 ## Notes
 
 - Every claim about what a `check_type` or operator means traces back to
@@ -153,4 +177,5 @@ reads; it never calls anything that writes or publishes.
   surfacing — this skill's value is catching what a quick skim of the raw JSON
   would miss, not just re-narrating field names.
 - Read-only: this skill never calls anything that creates or edits a
-  TestBlock, TestBlockVersion, or ad-hoc assertions record.
+  TestBlock, TestBlockVersion, or ad-hoc assertions record. The optional report is a private page or
+  a chat block, and nothing about it is stored in Miqa.
