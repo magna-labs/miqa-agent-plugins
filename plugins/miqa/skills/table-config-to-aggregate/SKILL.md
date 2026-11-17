@@ -73,7 +73,10 @@ it is and why, and move on to the next. Do not force a conversion or approximate
 
    4. Copy `title`, `headers`, `column_config` and `max_row_count` across. Rename `key` to the sample
       column with `column_config` or `explode(key_field='<name>')`, because `explode()` puts the
-      sample key there. Always set
+      sample key there. Show the sample column first by default. For a table built with `explode()`
+      from a list of rows, the key comes last, so add `"union_headers": true` and
+      `"first_columns": ["<sample column>"]`, or, if you set `headers`, list the sample column first.
+      A table built from one object per sample, or from `Join`, already starts with the key. Always set
       `downloadable: true` on the aggregate table.
    5. Replace the original per-sample `table_config` entry. The aggregate table takes its place, and
       one table per sample is the clutter this skill exists to get rid of, so assume the user wants
@@ -108,7 +111,33 @@ it is and why, and move on to the next. Do not force a conversion or approximate
 
 6. **Report.** Give the edited JSON, then a short list: which checks were converted, which were
    left unchanged because they did not fit, and why, what was run, and what is still unconfirmed. Offer to save it as a new
-   Test Block version, but do not do it unless the user says yes.
+   Test Block version, or, in the Miqa web chat, as an Apply block (see below), but do not do either
+   unless the user says yes.
+
+## In the Miqa web chat
+
+When the page's editor JSON is in the turn's context ("Assertions JSON in the page editor"), the
+converted checks can be applied to the editor. Once the user has agreed to the conversion, give the
+edited checks like this:
+
+- Send **one** fenced code block whose language is `miqa-assertions`. It holds only the check-type
+  groups to change, each with a `checks` list of **complete** corrected checks. The drawer shows an
+  **Apply** button under it, so never ask the user to paste the JSON.
+- Apply replaces a check with the same `name`, so keep every changed check's `name` exactly as it
+  is. A check with a new name is added at the top, and it leaves the old one in place. Do not rename a
+  check in a fix. If a rename is needed, tell the user to delete the old check by hand.
+- Top-level `_variables` is merged shallowly: you can add or overwrite entries, not remove them.
+- Apply cannot delete. Deleting a whole check, or an entry in top-level `_variables`, has to be done
+  by hand: list those separately in plain words. Removing a key from inside a check is fine, because
+  the whole check is replaced.
+- Checks with no `name`, or with the same `name` as another check, cannot be targeted reliably. Leave
+  them out of the block, and say they need a manual edit.
+- Apply only fills the editor. It does not save. Tell the user to review the editor and save it.
+- A conversion replaces the whole check, so removing the per-sample `table_config` and adding
+  `named_aggregate_stats` and `aggregate_table_config` both work. A shared table stored in top-level
+  `_variables` can be added by the same block, but an old entry cannot be removed by it.
+- If the context says the editor JSON was omitted for size, read the block with
+  `api_get_test_block_version`, or ask the user to paste it. Apply still works on the page's editor.
 
 ## Things to watch
 
